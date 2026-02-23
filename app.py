@@ -55,7 +55,7 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # --- CONSTANTES LEGALES ---
-POLICY_VERSION = "v1.1-2024-05-24" # Actualizada con el nuevo texto
+POLICY_VERSION = "v1.1-2024-05-24" 
 
 # --- SELECTOR DE IDIOMA ---
 col_l, col_r = st.columns([4, 1])
@@ -195,23 +195,18 @@ if enviar:
         clean_wa = "".join(filter(str.isdigit, wa))
         dedupe_key = hashlib.md5(f"{clean_wa}_{now_utc.date()}".encode()).hexdigest()
 
-        # CONSOLIDACIÓN LEGAL EN EL CAMPO 'NOTAS'
-        # Esto guarda un log de qué versión de política aceptó y cuándo
+        # Registro legal detallado en notas para respaldo
         extended_notes = (
-            f"--- REGISTRO LEGAL ---\n"
+            f"--- LOG LEGAL ---\n"
             f"Política: {POLICY_VERSION}\n"
-            f"Consentimiento: {now_utc.isoformat()}\n"
-            f"Aceptó Privacidad: {check_privacy}\n"
-            f"Aceptó Compartir: {check_share}\n"
-            f"Aceptó WhatsApp: {check_whatsapp}\n"
-            f"--- DATOS EXTRA ---\n"
-            f"Edad: {age_val}\n"
+            f"Timestamp: {now_utc.isoformat()}\n"
+            f"--- OTROS DATOS ---\n"
             f"País: {country}\n"
             f"Idioma: {idioma_val}\n"
-            f"Notas usuario: {notes_content}"
+            f"Comentarios: {notes_content}"
         )
 
-        # Mapeo de columnas confirmadas en Supabase
+        # MAPEO DE COLUMNAS (Asegúrate de que 'edad' y 'genero' existan en Supabase tal cual)
         payload = {
             "nombre": fn,
             "telefono": wa,
@@ -219,7 +214,9 @@ if enviar:
             "dedupe_key": dedupe_key,
             "budget": int(bg),
             "habitaciones": rm,
-            "pref_genero": lw,
+            "pref_genero": lw,    # Columna existente
+            "edad": int(age_val), # Nueva columna detectada en tu captura
+            "genero": lw,         # Nueva columna detectada en tu captura
             "zona": ", ".join(barrios_sel) if barrios_sel else "Sin especificar",
             "inicio": m_in.isoformat(),
             "fin": m_out.isoformat(),
@@ -236,4 +233,5 @@ if enviar:
                 if "duplicate key" in error_msg.lower():
                     st.warning("⚠️ Ya recibimos tu solicitud hoy.")
                 else:
-                    st.error(f"Error: {error_msg}")
+                    # Si el error es por las columnas nuevas, mostramos el mensaje detallado
+                    st.error(f"Error de base de datos: {error_msg}")
