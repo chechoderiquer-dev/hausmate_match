@@ -1,38 +1,3 @@
-# app.py
-# HausMate Match — branded dynamic survey + Supabase storage + admin-only results
-#
-# ✅ IMPORTANT (requirements.txt)
-# Add this line if you don't have it yet:
-# supabase>=2.0.0
-#
-# ✅ IMPORTANT (Streamlit Secrets - TOML)
-# ADMIN_PASSWORD = "..."
-# SUPABASE_URL = "https://<YOUR_PROJECT_ID>.supabase.co"
-# SUPABASE_SERVICE_ROLE_KEY = "sb_secret_..."
-# SUPABASE_TABLE = "hausmate_leads"
-#
-# ✅ IMPORTANT (Supabase table)
-# Create a table named like SUPABASE_TABLE with columns:
-# - nombre (text)
-# - telefono (text)
-# - edad (int4)
-# - genero (text)
-# - pref_genero (text)
-# - idioma (text)
-# - zona (text)                # pipe-separated e.g. "Chamberí|Retiro"
-# - budget (int4)
-# - inicio (date)
-# - fin (date)
-# - max_compartir_con (int4)
-# - banos_min (int4)
-# - notas (text)
-# - rooms_pref (text)          # e.g. "1|2|3|..."
-# - l_country (text)           # inferred from phone
-# - created_at (timestamptz default now())
-#
-# Then enable RLS ON and add policy to allow ONLY service-role inserts (recommended).
-# Easiest: keep RLS OFF while testing, then lock later.
-
 import re
 from datetime import date, datetime
 from typing import Dict, List, Optional, Tuple
