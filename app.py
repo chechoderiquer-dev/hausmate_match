@@ -49,6 +49,13 @@ st.markdown("""
         box-shadow: 0 4px 12px rgba(0,0,0,0.2);
     }
 
+    /* Estilo para los checkbox legales */
+    .legal-text {
+        font-size: 0.85rem;
+        color: #555;
+        line-height: 1.2;
+    }
+
     /* Ocultar elementos innecesarios */
     #MainMenu, footer, header {visibility: hidden;}
     </style>
@@ -69,8 +76,14 @@ texts = {
         "idioma_form": "Idioma principal", "zonas": "📍 Zonas preferidas",
         "zonas_help": "Selecciona los distritos", "move_in": "¿Cuándo entras?",
         "move_out": "¿Hasta cuándo?", "notes": "Sobre ti (trabajo, hobbies...)",
-        "btn": "¡REGISTRARME Y BUSCAR MATCH!", "error": "⚠️ Requerido: Nombre y WhatsApp.",
-        "success": "✅ ¡Datos guardados con éxito!", "loading": "Guardando datos..."
+        "btn": "¡REGISTRARME Y BUSCAR MATCH!", 
+        "error": "⚠️ Requerido: Nombre, WhatsApp y aceptar términos legales.",
+        "success": "✅ ¡Datos guardados con éxito!", "loading": "Guardando datos...",
+        "legal_header": "⚖️ Información Legal y Privacidad",
+        "legal_notice": "Responsable: HausMate. Finalidad: Gestionar tu solicitud y realizar el 'match' con otros usuarios. Derechos: Acceso, supresión y portabilidad.",
+        "legal_opt1": "He leído y acepto la Política de Privacidad y el tratamiento de mis datos para el servicio. *",
+        "legal_opt2": "Autorizo expresamente a compartir mi contacto y perfil con otros usuarios que coincidan en el 'match'. *",
+        "legal_opt3": "Acepto ser contactado por WhatsApp para la gestión del servicio."
     },
     "English": {
         "title": "📝 Find your HausMate",
@@ -80,8 +93,14 @@ texts = {
         "idioma_form": "Main language", "zonas": "📍 Preferred areas",
         "zonas_help": "Select districts", "move_in": "Move-in date",
         "move_out": "Move-out date", "notes": "About you (work, hobbies...)",
-        "btn": "REGISTER & FIND MATCH!", "error": "⚠️ Required: Name and WhatsApp.",
-        "success": "✅ Data saved successfully.", "loading": "Saving data..."
+        "btn": "REGISTER & FIND MATCH!", 
+        "error": "⚠️ Required: Name, WhatsApp, and legal consent.",
+        "success": "✅ Data saved successfully.", "loading": "Saving data...",
+        "legal_header": "⚖️ Legal Information & Privacy",
+        "legal_notice": "Data Controller: HausMate. Purpose: Manage your request and perform matching with other users. Rights: Access, deletion, and portability.",
+        "legal_opt1": "I have read and accept the Privacy Policy and data processing for the service. *",
+        "legal_opt2": "I expressly authorize sharing my contact and profile with other matching users. *",
+        "legal_opt3": "I agree to be contacted via WhatsApp for service management."
     }
 }
 t = texts[lang]
@@ -128,7 +147,6 @@ with st.form("main_form", border=False):
         idioma_val = st.selectbox(t["idioma_form"], ["Spanish", "English", "French", "German", "Other"])
 
     st.write(t["zonas"])
-    # Lista Completa de los 21 Distritos de Madrid
     distritos = [
         "Centro", "Arganzuela", "Retiro", "Salamanca", "Chamartín", 
         "Tetuán", "Chamberí", "Fuencarral-El Pardo", "Moncloa-Aravaca", 
@@ -147,9 +165,18 @@ with st.form("main_form", border=False):
         
     notes_content = st.text_area(t["notes"], placeholder="..." )
     
-    # Mapa decorativo de Madrid
+    # Mapa decorativo
     m = folium.Map(location=[40.4168, -3.7038], zoom_start=12, tiles="cartodbpositron")
     st_folium(m, height=180, use_container_width=True, key="madrid_map")
+    
+    st.markdown("---")
+    # --- SECCIÓN LEGAL (NUEVA) ---
+    st.markdown(f"**{t['legal_header']}**")
+    st.caption(t['legal_notice'])
+    
+    check_privacy = st.checkbox(t['legal_opt1'])
+    check_share = st.checkbox(t['legal_opt2'])
+    check_whatsapp = st.checkbox(t['legal_opt3'])
     
     st.markdown("<br>", unsafe_allow_html=True)
     enviar = st.form_submit_button(t["btn"])
@@ -157,14 +184,13 @@ st.markdown('</div>', unsafe_allow_html=True)
 
 # --- LÓGICA DE ENVÍO ---
 if enviar:
-    if not fn or not wa:
+    # Verificación de campos obligatorios Y casillas legales
+    if not fn or not wa or not check_privacy or not check_share:
         st.error(t["error"])
     else:
-        # Generar una dedupe_key única basada en el teléfono para evitar duplicados
         clean_wa = "".join(filter(str.isdigit, wa))
         dedupe_key = hashlib.md5(f"{clean_wa}_{dt.datetime.now().date()}".encode()).hexdigest()
 
-        # MAPEADO SEGÚN EL SQL SCHEMA PROPORCIONADO
         payload = {
             "nombre": fn,
             "telefono": wa,
@@ -188,8 +214,7 @@ if enviar:
                 st.balloons()
                 st.success(t["success"])
             else:
-                # Si el error es por la unique constraint del dedupe_key, mostrar mensaje amigable
                 if "duplicate key" in error_msg.lower():
-                    st.warning("⚠️ Ya hemos recibido una solicitud de este número hoy. ¡Te contactaremos pronto!")
+                    st.warning("⚠️ Ya hemos recibido una solicitud de este número hoy.")
                 else:
-                    st.error(f"Error técnico al guardar: {error_msg}")
+                    st.error(f"Error técnico: {error_msg}")
