@@ -1,6 +1,5 @@
 import os
 import datetime as dt
-import hashlib
 from typing import Dict, Any
 import streamlit as st
 import folium
@@ -29,25 +28,21 @@ def apply_custom_style():
             height: 3.5em; 
             border: none;
         }
-        /* Ajuste de inputs para que se vean más limpios */
-        .stTextInput>div>div>input, .stSelectbox>div>div>div { border-radius: 8px; }
         </style>
         """, unsafe_allow_html=True)
 
 apply_custom_style()
 
 # --- MOSTRAR LOGO ---
-# Usando el nombre que analicé de tu archivo: LOGO_HAUSMATE.png
 st.markdown('<div class="logo-container">', unsafe_allow_html=True)
 try:
-    st.image("LOGO_HAUSMATE.png", width=350) # Tamaño ajustado para que luzca
+    st.image("LOGO_HAUSMATE.png", width=350)
 except:
     st.markdown("<h1 style='text-align: center; color: #0C2D33;'>HAUSMATE</h1>", unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# --- CONFIGURACIÓN DE OPCIONES ---
-DISTRITOS = ["Centro", "Chamberí", "Retiro", "Salamanca", "Tetuán", "Moncloa", "Arganzuela", "Malasaña", "Lavapiés", "Otros"]
-IDIOMAS = ["Spanish", "English", "French", "German", "Italian", "Portuguese", "Other"]
+# --- CONFIGURACIÓN ---
+DISTRITOS = ["Centro", "Chamberí", "Retiro", "Salamanca", "Tetuán", "Moncloa", "Arganzuela", "Otros"]
 
 def save_to_supabase(data: Dict[str, Any]):
     try:
@@ -64,75 +59,75 @@ def save_to_supabase(data: Dict[str, Any]):
 # --- FORMULARIO ---
 with st.container():
     st.markdown('<div class="haus-card">', unsafe_allow_html=True)
-    with st.form("form_match"):
+    with st.form("form_match_final"):
         st.subheader("📝 Encuentra tu HausMate")
         
         col1, col2 = st.columns(2)
         with col1:
-            nombre = st.text_input("Nombre completo *")
-            tel = st.text_input("WhatsApp (con prefijo +34) *")
-            edad = st.number_input("Edad", 18, 99, 25)
-            genero = st.selectbox("Tu género", ["mujer", "hombre", "otro"])
-            idioma = st.selectbox("Idioma principal", options=IDIOMAS)
+            # Sincronizado con 'full_name'
+            fn = st.text_input("Nombre completo *")
+            # Sincronizado con 'whatsapp'
+            wa = st.text_input("WhatsApp (con prefijo +34) *")
+            # Sincronizado con 'age'
+            age = st.number_input("Edad", 18, 99, 25)
+            # Sincronizado con 'living_with'
+            lw = st.selectbox("Preferencia de convivencia", ["mixto", "solo_mujeres", "solo_hombres"])
         
         with col2:
-            budget = st.number_input("Presupuesto Máximo (€)", 0, 5000, 1000)
-            pref_gen = st.selectbox("Preferencia de convivencia", ["mixto", "solo_mujeres", "solo_hombres"])
-            # Sincronizado con columna 'max_compartir_con'
-            max_comp = st.selectbox("Máximo de personas en casa", [1, 2, 3, 4, 5])
-            # Sincronizado con columna 'banos_min'
-            banos = st.selectbox("Mínimo de baños", [1, 2, 3])
-        
+            # Sincronizado con 'budget'
+            bg = st.number_input("Presupuesto Máximo (€)", 0, 5000, 1000)
+            # Sincronizado con 'rooms' (text en tu SQL)
+            rm = st.selectbox("Máximo de habitaciones en casa", ["1", "2", "3", "4", "5+"])
+            # Campo adicional para tu SQL (puedes dejarlo fijo o pedirlo)
+            country = st.text_input("País de origen", "España")
+            idioma_adicional = st.selectbox("Idioma principal", ["Spanish", "English", "French", "German", "Other"])
+
         st.write("📍 **Zonas preferidas**")
-        zona_sel = st.multiselect("Puedes elegir varias", options=DISTRITOS)
+        # Sincronizado con 'barrios' (Array en tu SQL)
+        barrios_sel = st.multiselect("Selecciona los distritos", options=DISTRITOS)
         
         c3, c4 = st.columns(2)
         with c3:
-            f_inicio = st.date_input("¿Cuándo quieres entrar?", dt.date.today())
+            # Sincronizado con 'move_in' (text en tu SQL)
+            m_in = st.date_input("¿Cuándo quieres entrar?", dt.date.today())
         with c4:
-            f_fin = st.date_input("¿Hasta cuándo te quedas?", dt.date.today() + dt.timedelta(days=180))
+            # Sincronizado con 'move_out' (text en tu SQL)
+            m_out = st.date_input("¿Hasta cuándo te quedas?", dt.date.today() + dt.timedelta(days=180))
             
-        notas = st.text_area("Cuéntanos un poco sobre ti (hobbies, trabajo...)")
+        # Sincronizado con 'notes'
+        notes = st.text_area("Cuéntanos sobre ti (trabajo, hobbies, convivencia...)")
         
-        # Mapa estético de Madrid
         m = folium.Map(location=[40.4168, -3.7038], zoom_start=12, tiles="cartodbpositron")
-        st_folium(m, height=200, use_container_width=True, key="mapa_v10")
+        st_folium(m, height=200, use_container_width=True, key="mapa_vFinal")
         
         enviar = st.form_submit_button("¡REGISTRARME Y BUSCAR MATCH!")
     st.markdown('</div>', unsafe_allow_html=True)
 
 # --- LÓGICA DE ENVÍO ---
 if enviar:
-    if not nombre or not tel:
-        st.error("⚠️ El nombre y el teléfono son obligatorios para contactarte.")
+    if not fn or not wa:
+        st.error("⚠️ El nombre y el WhatsApp son obligatorios.")
     else:
-        # Generar clave única para evitar duplicados (Dedupe Key)
-        unique_id = hashlib.md5(f"{tel}_{dt.datetime.now()}".encode()).hexdigest()
-        
-        # Mapeo exacto a tu tabla de Supabase y archivo CSV
+        # MAPEO EXACTO A TU SQL:
         payload = {
-            "nombre": nombre,
-            "telefono": tel,
-            "telefono_raw": tel,
-            "edad": int(edad),
-            "genero": genero,
-            "pref_genero": pref_gen,
-            "idioma": idioma,
-            "zona": "|".join(zona_sel),
-            "budget": int(budget),
-            "inicio": f_inicio.isoformat(),
-            "fin": f_fin.isoformat(),
-            "max_compartir_con": int(max_comp), # Columna correcta según tu CSV
-            "banos_min": int(banos),            # Columna correcta según tu CSV
-            "notas": notas,
-            "dedupe_key": unique_id,
+            "full_name": fn,
+            "whatsapp": wa,
+            "age": int(age),
+            "budget": int(bg),
+            "rooms": rm,
+            "living_with": lw,
+            "barrios": barrios_sel,  # Supabase acepta listas [] para columnas text[]
+            "move_in": m_in.isoformat(),
+            "move_out": m_out.isoformat(),
+            "notes": f"Idioma: {idioma_adicional}. {notes}",
+            "country_guess": country,
             "created_at": dt.datetime.now(dt.timezone.utc).isoformat()
         }
         
-        with st.spinner("Conectando con HausMate..."):
+        with st.spinner("Guardando en la base de datos..."):
             exito, error = save_to_supabase(payload)
             if exito:
                 st.balloons()
-                st.success("✅ ¡Perfecto! Tus datos han sido guardados. Estamos buscándote el mejor match.")
+                st.success("✅ ¡PERFECTO! Datos guardados en tu tabla SQL.")
             else:
-                st.error(f"Hubo un problema al guardar: {error}")
+                st.error(f"Error de base de datos: {error}")
