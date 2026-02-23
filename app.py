@@ -15,20 +15,18 @@ st.markdown("""
         background: linear-gradient(180deg, #7FBBC2 0%, #D9F1F3 60%, #ffffff 100%); 
     }
     
-    /* 2. Eliminar el espacio superior de Streamlit */
+    /* 2. Eliminar el espacio superior y ajustar ancho */
     .block-container { 
         padding-top: 1rem !important; 
-        max-width: 700px !important; 
+        max-width: 800px !important; 
     }
     
-    /* 3. Reducir espacio entre logo y tarjeta */
-    [data-testid="stVerticalBlock"] > div:has(div.logo-container) {
-        margin-bottom: -50px !important;
-    }
-
+    /* 3. El truco del espacio: margen negativo para subir la tarjeta */
     .logo-container { 
         text-align: center;
-        margin-bottom: -40px; /* Ajuste fino para subir la tarjeta */
+        margin-bottom: -70px; /* Sube la tarjeta blanca agresivamente */
+        position: relative;
+        z-index: 0;
     }
     
     /* 4. Estilo de la tarjeta blanca */
@@ -37,10 +35,11 @@ st.markdown("""
         padding: 2.5rem; 
         border-radius: 20px; 
         box-shadow: 0 10px 25px rgba(0,0,0,0.1); 
-        margin-top: 0px;
+        position: relative;
+        z-index: 1; /* Para que quede por encima del margen del logo */
     }
     
-    /* 5. Botón */
+    /* 5. Botón HausMate */
     .stButton>button { 
         width: 100%; 
         background-color: #0C2D33 !important; 
@@ -50,18 +49,17 @@ st.markdown("""
         height: 3.5em; 
     }
 
-    /* Ocultar espacios vacíos de Streamlit */
-    #MainMenu, footer, header {visibility: hidden;}
+    /* Limpiar headers de Streamlit */
+    header {visibility: hidden;}
     </style>
     """, unsafe_allow_html=True)
 
 # --- SELECTOR DE IDIOMA ---
-# Lo ponemos en una columna pequeña a la derecha para que no robe espacio
-col_l, col_r = st.columns([3, 1])
-with col_r:
+col_empty, col_lang = st.columns([4, 1])
+with col_lang:
     lang = st.radio("Lang", ["Español", "English"], horizontal=True, label_visibility="collapsed")
 
-# --- DICCIONARIO DE TRADUCCIONES ---
+# --- TRADUCCIONES ---
 texts = {
     "Español": {
         "title": "📝 Encuentra tu HausMate",
@@ -71,7 +69,7 @@ texts = {
         "idioma_form": "Idioma principal", "zonas": "📍 Zonas preferidas",
         "zonas_help": "Selecciona los distritos", "move_in": "¿Cuándo entras?",
         "move_out": "¿Hasta cuándo?", "notes": "Sobre ti (trabajo, hobbies...)",
-        "btn": "¡REGISTRARME Y BUSCAR MATCH!", "error": "⚠️ Requerido: Nombre y WhatsApp.",
+        "btn": "¡REGISTRARME Y BUSCAR MATCH!", "error": "⚠️ Nombre y WhatsApp requeridos.",
         "success": "✅ ¡Datos guardados!", "loading": "Guardando..."
     },
     "English": {
@@ -82,25 +80,22 @@ texts = {
         "idioma_form": "Main language", "zonas": "📍 Preferred areas",
         "zonas_help": "Select districts", "move_in": "Move-in date",
         "move_out": "Move-out date", "notes": "About you (work, hobbies...)",
-        "btn": "REGISTER & FIND MATCH!", "error": "⚠️ Required: Name and WhatsApp.",
+        "btn": "REGISTER & FIND MATCH!", "error": "⚠️ Name and WhatsApp are required.",
         "success": "✅ Data saved.", "loading": "Saving..."
     }
 }
 t = texts[lang]
 
-# --- LOGO CENTRADO ---
+# --- LOGO CENTRADO Y VISIBLE ---
 st.markdown('<div class="logo-container">', unsafe_allow_html=True)
 c_l, c_c, c_r = st.columns([1, 2, 1])
 with c_c:
-    logo_names = ["LOGO_HAUSMATE.png", "logo_hausmate.png"]
-    logo_found = False
-    for name in logo_names:
-        if os.path.exists(name):
-            st.image(name, use_container_width=True)
-            logo_found = True
-            break
-    if not logo_found:
-        st.markdown(f"<h1 style='text-align: center; color: #0C2D33;'>HAUSMATE</h1>", unsafe_allow_html=True)
+    # Intenta encontrar el logo con los nombres analizados
+    logo_path = "LOGO_HAUSMATE.png"
+    if os.path.exists(logo_path):
+        st.image(logo_path, use_container_width=True)
+    else:
+        st.markdown(f"<h1 style='color: #0C2D33;'>HAUSMATE</h1>", unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
 # --- FUNCIÓN DB ---
@@ -148,12 +143,12 @@ with st.container():
         notes = st.text_area(t["notes"])
         
         m = folium.Map(location=[40.4168, -3.7038], zoom_start=12, tiles="cartodbpositron")
-        st_folium(m, height=200, use_container_width=True, key="mapa_vFinal")
+        st_folium(m, height=200, use_container_width=True, key="mapa_final")
         
         enviar = st.form_submit_button(t["btn"])
     st.markdown('</div>', unsafe_allow_html=True)
 
-# --- LÓGICA DE ENVÍO ---
+# --- ENVÍO ---
 if enviar:
     if not fn or not wa:
         st.error(t["error"])
@@ -162,7 +157,7 @@ if enviar:
             "full_name": fn, "whatsapp": wa, "age": int(age), "budget": int(bg),
             "rooms": rm, "living_with": lw, "barrios": barrios_sel, 
             "move_in": m_in.isoformat(), "move_out": m_out.isoformat(),
-            "notes": f"UI_Lang: {lang}. {notes}", "country_guess": country,
+            "notes": f"UI: {lang}. {notes}", "country_guess": country,
             "created_at": dt.datetime.now(dt.timezone.utc).isoformat()
         }
         with st.spinner(t["loading"]):
