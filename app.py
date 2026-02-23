@@ -8,75 +8,83 @@ from streamlit_folium import st_folium
 
 st.set_page_config(page_title="HausMate Match", page_icon="🏠", layout="centered")
 
-# --- ESTILO ---
-st.markdown("""
-    <style>
-    .stApp { background: linear-gradient(180deg, #7FBBC2 0%, #D9F1F3 60%, #ffffff 100%); }
-    .haus-card { background: white; padding: 2rem; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-    .stButton>button { 
-        width: 100%; 
-        background-color: #0C2D33 !important; 
-        color: white !important; 
-        font-weight: bold; 
-        border-radius: 10px; 
-        height: 3em; 
-    }
-    </style>
-    """, unsafe_allow_html=True)
+# --- ESTILO Y LOGO ---
+def apply_custom_style():
+    st.markdown("""
+        <style>
+        .stApp { background: linear-gradient(180deg, #7FBBC2 0%, #D9F1F3 60%, #ffffff 100%); }
+        .haus-card { background: white; padding: 2rem; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .logo-container { text-align: center; margin-bottom: 20px; }
+        .stButton>button { 
+            width: 100%; 
+            background-color: #0C2D33 !important; 
+            color: white !important; 
+            font-weight: bold; 
+            border-radius: 10px; 
+            height: 3em; 
+        }
+        </style>
+        """, unsafe_allow_html=True)
 
-DISTRITOS = ["Arganzuela", "Centro", "Chamberí", "Retiro", "Salamanca", "Tetuán", "Otros"]
+apply_custom_style()
+
+# --- INSERTAR LOGO ---
+# Reemplaza "logo.png" por el nombre exacto de tu archivo (ej. "hausmate_logo.png")
+try:
+    st.markdown('<div class="logo-container">', unsafe_allow_html=True)
+    # Si subiste el logo a GitHub o lo tienes local, pon el nombre aquí:
+    st.image("logo.png", width=200) 
+    st.markdown('</div>', unsafe_allow_html=True)
+except:
+    st.markdown("<h1 style='text-align: center; color: #0C2D33;'>🏠 HausMate Match</h1>", unsafe_allow_html=True)
+
+# --- CONFIGURACIÓN ---
+DISTRITOS = ["Arganzuela", "Centro", "Chamberí", "Retiro", "Salamanca", "Tetuán", "Moncloa", "Otros"]
 IDIOMAS = ["Spanish", "English", "French", "German", "Italian", "Portuguese", "Other"]
 
-# --- FUNCIÓN DE ENVÍO ---
 def save_to_supabase(data: Dict[str, Any]):
     try:
         url = st.secrets["SUPABASE_URL"].strip().replace('"', '')
         key = st.secrets["SUPABASE_SERVICE_ROLE_KEY"].strip().replace('"', '')
         table = st.secrets["SUPABASE_TABLE"].strip().replace('"', '')
-        
         from supabase import create_client
         supabase = create_client(url, key)
-        
-        # Insertar datos en la tabla hausmate_leads
         supabase.table(table).insert(data).execute()
         return True, ""
     except Exception as e:
         return False, str(e)
 
-# --- INTERFAZ ---
-st.title("🏠 HausMate Match")
-
+# --- FORMULARIO ---
 with st.container():
     st.markdown('<div class="haus-card">', unsafe_allow_html=True)
     with st.form("form_final"):
-        st.subheader("📝 Tu perfil de búsqueda")
+        st.subheader("📝 Perfil de Búsqueda")
         
         col1, col2 = st.columns(2)
         with col1:
-            nombre_input = st.text_input("Nombre completo *")
-            tel_input = st.text_input("Teléfono/WhatsApp *")
-            edad_input = st.number_input("Edad", 18, 99, 25)
-            genero_user = st.selectbox("Tu género", ["mujer", "hombre", "otro"])
-            idioma_input = st.selectbox("Idioma principal", options=IDIOMAS)
+            nombre = st.text_input("Nombre completo *")
+            tel = st.text_input("Teléfono/WhatsApp *")
+            edad = st.number_input("Edad", 18, 99, 25)
+            genero = st.selectbox("Tu género", ["mujer", "hombre", "otro"])
+            idioma = st.selectbox("Idioma principal", options=IDIOMAS)
         
         with col2:
-            budget_input = st.number_input("Presupuesto Máximo (€)", 0, 5000, 800)
+            budget = st.number_input("Presupuesto Máximo (€)", 0, 5000, 800)
             pref_gen = st.selectbox("Preferencia de convivencia", ["mixto", "solo_mujeres", "solo_hombres"])
-            hab_max = st.selectbox("Máximo de habitaciones en la casa", ["1", "2", "3", "4", "5+"])
-            banos_min = st.selectbox("Mínimo de baños", ["1", "2", "3+"])
+            hab_max = st.selectbox("Máximo de habitaciones", ["1", "2", "3", "4", "5+"])
+            banos = st.selectbox("Mínimo de baños", ["1", "2", "3+"])
         
-        st.write("📍 **¿Dónde quieres vivir?**")
+        st.write("📍 **Zonas de interés**")
         zona_sel = st.multiselect("Selecciona distritos", options=DISTRITOS)
         
         c3, c4 = st.columns(2)
         with c3:
-            fecha_inicio = st.date_input("Fecha entrada preferida", dt.date.today())
+            f_inicio = st.date_input("Fecha entrada", dt.date.today())
         with c4:
-            fecha_fin = st.date_input("Fecha salida aproximada", dt.date.today() + dt.timedelta(days=90))
+            f_fin = st.date_input("Fecha salida", dt.date.today() + dt.timedelta(days=90))
             
-        notas_input = st.text_area("Notas adicionales (hobbies, trabajo, etc.)")
+        notas = st.text_area("Notas adicionales")
         
-        # Mapa visual
         m = folium.Map(location=[40.4168, -3.7038], zoom_start=11, tiles="cartodbpositron")
         st_folium(m, height=200, use_container_width=True, key="mapa_madrid")
         
@@ -84,38 +92,34 @@ with st.container():
     st.markdown('</div>', unsafe_allow_html=True)
 
 if enviar:
-    if not nombre_input or not tel_input:
-        st.error("⚠️ El nombre y el teléfono son obligatorios.")
+    if not nombre or not tel:
+        st.error("⚠️ Nombre y Teléfono son obligatorios.")
     else:
-        # Generar dedupe_key única
-        unique_str = f"{tel_input}_{dt.datetime.now().isoformat()}"
-        d_key = hashlib.md5(unique_str.encode()).hexdigest()
-
-        # PAYLOAD MAPEADO EXACTAMENTE A TU TABLA hausmate_leads
+        unique_id = hashlib.md5(f"{tel}_{dt.datetime.now()}".encode()).hexdigest()
+        
         payload = {
-            "nombre": nombre_input,
-            "telefono": tel_input,
-            "telefono_raw": tel_input,
-            "edad": int(edad_input),
-            "genero": genero_user,
+            "nombre": nombre,
+            "telefono": tel,
+            "telefono_raw": tel,
+            "edad": int(edad),
+            "genero": genero,
             "pref_genero": pref_gen,
-            "idioma": idioma_input, # <--- Nueva columna agregada
+            "idioma": idioma,
             "zona": "|".join(zona_sel),
-            "budget": int(budget_input),
-            "inicio": fecha_inicio.isoformat(),
-            "fin": fecha_fin.isoformat(),
+            "budget": int(budget),
+            "inicio": f_inicio.isoformat(),
+            "fin": f_fin.isoformat(),
             "habitaciones": hab_max,
-            "banos_min": int(banos_min.replace("+", "")),
-            "notas": notas_input,
-            "dedupe_key": d_key,
+            "banos_min": int(banos.replace("+", "")),
+            "notas": notas,
+            "dedupe_key": unique_id,
             "created_at": dt.datetime.now(dt.timezone.utc).isoformat()
         }
         
-        with st.spinner("Guardando perfil..."):
-            exito, error_msg = save_to_supabase(payload)
+        with st.spinner("Registrando..."):
+            exito, error = save_to_supabase(payload)
             if exito:
                 st.balloons()
-                st.success("✅ ¡Perfecto! Tu perfil se ha guardado con el idioma seleccionado.")
+                st.success("✅ ¡Registro completado con éxito!")
             else:
-                st.error("❌ Error al guardar.")
-                st.info(f"Detalle técnico: {error_msg}")
+                st.error(f"Error: {error}")
