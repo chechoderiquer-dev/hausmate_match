@@ -53,7 +53,7 @@ st.markdown("""
     [data-testid="stImage"] {
         display: flex;
         justify-content: center;
-        margin-bottom: 5px;
+        margin-bottom: 10px;
     }
 
     /* Ocultar elementos innecesarios */
@@ -126,13 +126,15 @@ texts = {
 }
 t = texts[lang]
 
-# --- CABECERA CON LOGO (CORREGIDA CON EL NOMBRE EXACTO) ---
-col_logo_1, col_logo_2, col_logo_3 = st.columns([1, 2, 1])
+# --- CABECERA CON LOGO (URL CORREGIDA PARA GITHUB RAW) ---
+col_logo_1, col_logo_2, col_logo_3 = st.columns([1, 3, 1])
 with col_logo_2:
-    # Actualizado al nombre de archivo que indicaste: logo_hausmate.png
-    logo_url = st.secrets.get("LOGO_URL", "https://raw.githubusercontent.com/Tr0mAn/HausMate/main/logo_hausmate.png")
+    # URL corregida basada en tu captura de GitHub (chechoderiquer-dev / hausmate_match)
+    # Importante: Usamos raw.githubusercontent.com para obtener el archivo directo
+    logo_url = "https://raw.githubusercontent.com/chechoderiquer-dev/hausmate_match/main/logo_hausmate.png"
+    
     try:
-        st.image(logo_url, width=300)
+        st.image(logo_url, use_container_width=True)
     except:
         st.markdown("<h1 style='text-align: center; color: #0C2D33;'>HAUSMATE</h1>", unsafe_allow_html=True)
 
@@ -218,7 +220,7 @@ if enviar:
             f"Comentarios: {notes_content}"
         )
 
-        # MAPEO DE COLUMNAS (Sincronizado con Supabase)
+        # MAPEO DE COLUMNAS (Sincronizado con tu Supabase)
         payload = {
             "nombre": fn,
             "telefono": wa,
