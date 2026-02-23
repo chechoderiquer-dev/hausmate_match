@@ -8,7 +8,7 @@ import pandas as pd
 import requests
 
 import folium
-from folium.features import GeoJson, GeoJsonTooltip
+from folium.features import GeoJson
 from streamlit_folium import st_folium
 
 # =========================
@@ -100,14 +100,16 @@ def save_to_supabase(payload: Dict[str, Any]) -> (bool, str):
         return False, str(e)
 
 # =========================
-# MAP LOGIC (URL CORREGIDA)
+# MAP LOGIC (URL OFICIAL MADRID)
 # =========================
-# Usamos una fuente más estable para los distritos de Madrid
-BARRIOS_GEOJSON_URL = "https://raw.githubusercontent.com/joker-77/Madrid_GeoJSON/master/distritos_madrid.geojson"
+# Fuente oficial: Portal de Datos Abiertos del Ayuntamiento de Madrid (Distritos)
+BARRIOS_GEOJSON_URL = "https://geoportal.madrid.es/fsdesc/DISTRITOS.json"
 
 @st.cache_data(show_spinner=False)
 def load_barrios_geojson():
-    r = requests.get(BARRIOS_GEOJSON_URL, timeout=30)
+    # El servidor oficial requiere un User-Agent para evitar bloqueos
+    headers = {'User-Agent': 'Mozilla/5.0'}
+    r = requests.get(BARRIOS_GEOJSON_URL, headers=headers, timeout=30)
     r.raise_for_status()
     return r.json()
 
@@ -115,11 +117,10 @@ def extract_barrios_list(geojson):
     names = []
     for f in geojson.get("features", []):
         props = f.get("properties", {})
-        # Buscamos nombres en diferentes posibles llaves del GeoJSON
-        for k in ["NOMBRE", "name", "NAME", "neighborhood", "distrito"]:
-            if props.get(k):
-                names.append(str(props[k]).strip())
-                break
+        # En el GeoJSON oficial de Madrid, la llave suele ser 'NOMBRE'
+        name = props.get("NOMBRE") or props.get("name") or props.get("NAME")
+        if name:
+            names.append(str(name).strip().title())
     return sorted(list(set(names))) if names else ["Madrid Centro"]
 
 # =========================
@@ -129,15 +130,12 @@ st.set_page_config(page_title=APP_NAME, page_icon="🏠", layout="centered")
 brand_css()
 render_header()
 
-if "selected_barrios" not in st.session_state:
-    st.session_state["selected_barrios"] = []
-
-# Carga de datos del mapa
+# Carga de datos del mapa con manejo de error visual
 try:
     geojson_data = load_barrios_geojson()
     barrios_options = extract_barrios_list(geojson_data)
 except Exception as e:
-    st.error(f"Error cargando mapa: {e}")
+    st.error(f"No se pudo cargar el mapa desde la fuente oficial. Por favor, intenta de nuevo más tarde.")
     geojson_data, barrios_options = None, []
 
 # FORMULARIO
@@ -162,17 +160,23 @@ with st.container():
 
         st.markdown("---")
         st.markdown("### 📍 ¿Dónde quieres vivir?")
-        selected = st.multiselect("Busca y selecciona barrios", options=barrios_options)
+        
+        # El multiselect ahora tendrá las opciones si el GeoJSON cargó
+        selected = st.multiselect(
+            "Busca y selecciona distritos/barrios", 
+            options=barrios_options,
+            help="Si no aparece la lista, es un problema de conexión con el mapa."
+        )
         
         if geojson_data:
             m = folium.Map(location=[40.4168, -3.7038], zoom_start=11, tiles="cartodbpositron")
             folium.GeoJson(
                 geojson_data,
                 style_function=lambda x: {
-                    'fillColor': BRAND_DARK if (x['properties'].get('NOMBRE') in selected or x['properties'].get('name') in selected) else '#ffffff',
+                    'fillColor': BRAND_DARK if (str(x['properties'].get('NOMBRE', '')).title() in selected) else '#ffffff',
                     'color': BRAND_DARK,
                     'weight': 1,
-                    'fillOpacity': 0.5 if (x['properties'].get('NOMBRE') in selected or x['properties'].get('name') in selected) else 0.1
+                    'fillOpacity': 0.5 if (str(x['properties'].get('NOMBRE', '')).title() in selected) else 0.1
                 }
             ).add_to(m)
             st_folium(m, height=300, use_container_width=True, key="madrid_map")
@@ -208,6 +212,6 @@ if submitted:
         success, err = save_to_supabase(payload)
         if success:
             st.balloons()
-            st.success("¡Enviado!")
+            st.success("¡Tu perfil ha sido enviado correctamente!")
         else:
-            st.error(f"Error: {err}")
+            st.error(f"Error al guardar: {err}")
