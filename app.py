@@ -19,17 +19,17 @@ st.markdown("""
     
     /* 2. Ajustes de contenedor */
     .block-container { 
-        padding-top: 2rem !important; 
+        padding-top: 1.5rem !important; 
         max-width: 700px !important; 
     }
     
     /* 3. Estilo de la tarjeta blanca */
     .haus-card { 
         background: white; 
-        padding: 2.5rem; 
+        padding: 2rem; 
         border-radius: 20px; 
         box-shadow: 0 10px 25px rgba(0,0,0,0.1); 
-        margin-top: 20px;
+        margin-top: 15px;
         color: #0C2D33;
     }
     
@@ -49,13 +49,11 @@ st.markdown("""
         box-shadow: 0 4px 12px rgba(0,0,0,0.2);
     }
 
-    /* Contenedor del logo para asegurar centrado y visibilidad */
-    .logo-wrapper {
+    /* Forzar centrado de la imagen del logo */
+    [data-testid="stImage"] {
         display: flex;
         justify-content: center;
-        align-items: center;
-        width: 100%;
-        margin-bottom: 10px;
+        margin-bottom: 5px;
     }
 
     /* Ocultar elementos innecesarios */
@@ -128,11 +126,15 @@ texts = {
 }
 t = texts[lang]
 
-# --- CABECERA CON LOGO ---
-st.markdown('<div class="logo-wrapper">', unsafe_allow_html=True)
-logo_url = st.secrets.get("LOGO_URL", "https://raw.githubusercontent.com/Tr0mAn/HausMate/main/logo.png")
-st.image(logo_url, width=280)
-st.markdown('</div>', unsafe_allow_html=True)
+# --- CABECERA CON LOGO (CORREGIDA CON EL NOMBRE EXACTO) ---
+col_logo_1, col_logo_2, col_logo_3 = st.columns([1, 2, 1])
+with col_logo_2:
+    # Actualizado al nombre de archivo que indicaste: logo_hausmate.png
+    logo_url = st.secrets.get("LOGO_URL", "https://raw.githubusercontent.com/Tr0mAn/HausMate/main/logo_hausmate.png")
+    try:
+        st.image(logo_url, width=300)
+    except:
+        st.markdown("<h1 style='text-align: center; color: #0C2D33;'>HAUSMATE</h1>", unsafe_allow_html=True)
 
 # --- FUNCIÓN DB ---
 def save_to_supabase(data: Dict[str, Any]):
@@ -151,7 +153,7 @@ def save_to_supabase(data: Dict[str, Any]):
 # --- FORMULARIO ---
 st.markdown('<div class="haus-card">', unsafe_allow_html=True)
 with st.form("main_form", border=False):
-    st.markdown(f"<h3 style='text-align: center;'>{t['title']}</h3>", unsafe_allow_html=True)
+    st.markdown(f"<h3 style='text-align: center; margin-top: 0;'>{t['title']}</h3>", unsafe_allow_html=True)
     
     c1, c2 = st.columns(2)
     with c1:
@@ -217,7 +219,6 @@ if enviar:
         )
 
         # MAPEO DE COLUMNAS (Sincronizado con Supabase)
-        # Nota: 'edad' y 'genero' deben estar creados en Supabase.
         payload = {
             "nombre": fn,
             "telefono": wa,
