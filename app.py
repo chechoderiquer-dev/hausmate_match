@@ -83,7 +83,18 @@ texts = {
         "legal_notice": "Responsable: HausMate. Finalidad: Gestionar tu solicitud y realizar el 'match' con otros usuarios. Derechos: Acceso, supresión y portabilidad.",
         "legal_opt1": "He leído y acepto la Política de Privacidad y el tratamiento de mis datos para el servicio. *",
         "legal_opt2": "Autorizo expresamente a compartir mi contacto y perfil con otros usuarios que coincidan en el 'match'. *",
-        "legal_opt3": "Acepto ser contactado por WhatsApp para la gestión del servicio."
+        "legal_opt3": "Acepto ser contactado por WhatsApp para la gestión del servicio.",
+        "view_policy": "Leer Política de Privacidad completa",
+        "policy_content": """
+        **POLÍTICA DE PRIVACIDAD Y CONSENTIMIENTO**
+        
+        1. **Responsable:** HausMate.
+        2. **Finalidad:** Los datos recogidos se utilizarán exclusivamente para gestionar su perfil de búsqueda de vivienda y facilitar el contacto con otros usuarios compatibles (Matching).
+        3. **Legitimación:** Al marcar las casillas, usted otorga su consentimiento expreso bajo el RGPD (UE).
+        4. **Cesión de datos:** Sus datos de contacto (Nombre y WhatsApp) y sus preferencias de vivienda serán compartidos UNICAMENTE con aquellos usuarios con los que se genere un 'match' positivo.
+        5. **Conservación:** Sus datos se mantendrán mientras el servicio esté activo o hasta que usted solicite su supresión.
+        6. **Derechos:** Puede ejercer sus derechos de acceso, rectificación o cancelación enviando un mensaje a nuestro contacto de soporte.
+        """
     },
     "English": {
         "title": "📝 Find your HausMate",
@@ -100,7 +111,18 @@ texts = {
         "legal_notice": "Data Controller: HausMate. Purpose: Manage your request and perform matching with other users. Rights: Access, deletion, and portability.",
         "legal_opt1": "I have read and accept the Privacy Policy and data processing for the service. *",
         "legal_opt2": "I expressly authorize sharing my contact and profile with other matching users. *",
-        "legal_opt3": "I agree to be contacted via WhatsApp for service management."
+        "legal_opt3": "I agree to be contacted via WhatsApp for service management.",
+        "view_policy": "Read full Privacy Policy",
+        "policy_content": """
+        **PRIVACY POLICY AND CONSENT**
+        
+        1. **Controller:** HausMate.
+        2. **Purpose:** The collected data will be used exclusively to manage your housing search profile and facilitate contact with compatible users (Matching).
+        3. **Legitimation:** By checking the boxes, you grant express consent under the GDPR (EU).
+        4. **Data Sharing:** Your contact details (Name and WhatsApp) and housing preferences will ONLY be shared with users where a positive 'match' is generated.
+        5. **Retention:** Your data will be kept while the service is active or until you request its deletion.
+        6. **Rights:** You can exercise your rights of access, rectification, or cancellation by sending a message to our support contact.
+        """
     }
 }
 t = texts[lang]
@@ -170,7 +192,7 @@ with st.form("main_form", border=False):
     st_folium(m, height=180, use_container_width=True, key="madrid_map")
     
     st.markdown("---")
-    # --- SECCIÓN LEGAL (NUEVA) ---
+    # --- SECCIÓN LEGAL ---
     st.markdown(f"**{t['legal_header']}**")
     st.caption(t['legal_notice'])
     
@@ -178,13 +200,16 @@ with st.form("main_form", border=False):
     check_share = st.checkbox(t['legal_opt2'])
     check_whatsapp = st.checkbox(t['legal_opt3'])
     
+    # Desplegable con la política completa (Segunda Capa de Información)
+    with st.expander(t['view_policy']):
+        st.markdown(t['policy_content'])
+    
     st.markdown("<br>", unsafe_allow_html=True)
     enviar = st.form_submit_button(t["btn"])
 st.markdown('</div>', unsafe_allow_html=True)
 
 # --- LÓGICA DE ENVÍO ---
 if enviar:
-    # Verificación de campos obligatorios Y casillas legales
     if not fn or not wa or not check_privacy or not check_share:
         st.error(t["error"])
     else:
