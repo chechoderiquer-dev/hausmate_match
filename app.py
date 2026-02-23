@@ -33,12 +33,23 @@ def apply_custom_style():
 
 apply_custom_style()
 
-# --- MOSTRAR LOGO ---
+# --- LÓGICA DEL LOGO (MÁS ROBUSTA) ---
 st.markdown('<div class="logo-container">', unsafe_allow_html=True)
-try:
-    st.image("LOGO_HAUSMATE.png", width=350)
-except:
+
+# Lista de posibles nombres por si acaso
+posibles_logos = ["LOGO_HAUSMATE.png", "logo_hausmate.png", "LOGO_HAUSMATE.PNG"]
+logo_encontrado = False
+
+for nombre_archivo in posibles_logos:
+    if os.path.exists(nombre_archivo):
+        st.image(nombre_archivo, width=350)
+        logo_encontrado = True
+        break
+
+if not logo_encontrado:
+    st.warning(f"⚠️ No se encontró el archivo del logo. Asegúrate de que se llame exactamente 'LOGO_HAUSMATE.png' y esté en la carpeta principal.")
     st.markdown("<h1 style='text-align: center; color: #0C2D33;'>HAUSMATE</h1>", unsafe_allow_html=True)
+
 st.markdown('</div>', unsafe_allow_html=True)
 
 # --- CONFIGURACIÓN ---
@@ -64,37 +75,26 @@ with st.container():
         
         col1, col2 = st.columns(2)
         with col1:
-            # Sincronizado con 'full_name'
             fn = st.text_input("Nombre completo *")
-            # Sincronizado con 'whatsapp'
             wa = st.text_input("WhatsApp (con prefijo +34) *")
-            # Sincronizado con 'age'
             age = st.number_input("Edad", 18, 99, 25)
-            # Sincronizado con 'living_with'
             lw = st.selectbox("Preferencia de convivencia", ["mixto", "solo_mujeres", "solo_hombres"])
         
         with col2:
-            # Sincronizado con 'budget'
             bg = st.number_input("Presupuesto Máximo (€)", 0, 5000, 1000)
-            # Sincronizado con 'rooms' (text en tu SQL)
             rm = st.selectbox("Máximo de habitaciones en casa", ["1", "2", "3", "4", "5+"])
-            # Campo adicional para tu SQL (puedes dejarlo fijo o pedirlo)
             country = st.text_input("País de origen", "España")
-            idioma_adicional = st.selectbox("Idioma principal", ["Spanish", "English", "French", "German", "Other"])
+            idioma = st.selectbox("Idioma principal", ["Spanish", "English", "French", "German", "Other"])
 
         st.write("📍 **Zonas preferidas**")
-        # Sincronizado con 'barrios' (Array en tu SQL)
         barrios_sel = st.multiselect("Selecciona los distritos", options=DISTRITOS)
         
         c3, c4 = st.columns(2)
         with c3:
-            # Sincronizado con 'move_in' (text en tu SQL)
             m_in = st.date_input("¿Cuándo quieres entrar?", dt.date.today())
         with c4:
-            # Sincronizado con 'move_out' (text en tu SQL)
             m_out = st.date_input("¿Hasta cuándo te quedas?", dt.date.today() + dt.timedelta(days=180))
             
-        # Sincronizado con 'notes'
         notes = st.text_area("Cuéntanos sobre ti (trabajo, hobbies, convivencia...)")
         
         m = folium.Map(location=[40.4168, -3.7038], zoom_start=12, tiles="cartodbpositron")
@@ -108,7 +108,6 @@ if enviar:
     if not fn or not wa:
         st.error("⚠️ El nombre y el WhatsApp son obligatorios.")
     else:
-        # MAPEO EXACTO A TU SQL:
         payload = {
             "full_name": fn,
             "whatsapp": wa,
@@ -116,10 +115,10 @@ if enviar:
             "budget": int(bg),
             "rooms": rm,
             "living_with": lw,
-            "barrios": barrios_sel,  # Supabase acepta listas [] para columnas text[]
+            "barrios": barrios_sel, 
             "move_in": m_in.isoformat(),
             "move_out": m_out.isoformat(),
-            "notes": f"Idioma: {idioma_adicional}. {notes}",
+            "notes": f"Idioma: {idioma}. {notes}",
             "country_guess": country,
             "created_at": dt.datetime.now(dt.timezone.utc).isoformat()
         }
