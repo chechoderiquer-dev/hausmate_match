@@ -54,8 +54,8 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- CONSTANTES LEGALES (Para el Log de Responsabilidad Proactiva) ---
-POLICY_VERSION = "v1.0-2024-05-24" # Actualizar cada vez que cambie el texto legal
+# --- CONSTANTES LEGALES ---
+POLICY_VERSION = "v1.0-2024-05-24"
 
 # --- SELECTOR DE IDIOMA ---
 col_l, col_r = st.columns([4, 1])
@@ -85,15 +85,10 @@ texts = {
         **POLÍTICA DE PRIVACIDAD Y CONSENTIMIENTO DE TRATAMIENTO**
         
         **Responsable del Tratamiento:** HausMate (info@haus-es.com).
-        
         **Finalidad:** Gestión de perfil y facilitar la conexión ("Matching").
-        
         **Base Jurídica:** Consentimiento del usuario (Art. 6.1.a RGPD).
-        
         **Cesión de Datos:** Nombre y WhatsApp compartidos solo con matches positivos.
-        
         **Plazo:** Mientras se preste el servicio o hasta revocación.
-        
         **Derechos:** Acceso, supresión y portabilidad vía info@haus-es.com.
         """
     },
@@ -119,16 +114,12 @@ texts = {
 }
 t = texts[lang]
 
-# --- LOGO / CABECERA ---
+# --- CABECERA ---
 c_l, c_c, c_r = st.columns([1, 2, 1])
 with c_c:
-    logo_path = "logo_hausmate.png"
-    if os.path.exists(logo_path):
-        st.image(logo_path, use_container_width=True)
-    else:
-        st.markdown(f"<h1 style='text-align: center; color: #0C2D33; margin-bottom: 20px;'>HAUSMATE</h1>", unsafe_allow_html=True)
+    st.markdown(f"<h1 style='text-align: center; color: #0C2D33; margin-bottom: 20px;'>HAUSMATE</h1>", unsafe_allow_html=True)
 
-# --- FUNCIÓN DB (SUPABASE) ---
+# --- FUNCIÓN DB ---
 def save_to_supabase(data: Dict[str, Any]):
     try:
         from supabase import create_client
@@ -172,12 +163,12 @@ with st.form("main_form", border=False):
         
     notes_content = st.text_area(t["notes"], placeholder="..." )
     
+    # Mapa decorativo
     m = folium.Map(location=[40.4168, -3.7038], zoom_start=12, tiles="cartodbpositron")
     st_folium(m, height=180, use_container_width=True, key="madrid_map")
     
     st.markdown("---")
     st.markdown(f"**{t['legal_header']}**")
-    st.caption(t['legal_notice'])
     
     check_privacy = st.checkbox(t['legal_opt1'])
     check_share = st.checkbox(t['legal_opt2'])
@@ -199,32 +190,36 @@ if enviar:
         clean_wa = "".join(filter(str.isdigit, wa))
         dedupe_key = hashlib.md5(f"{clean_wa}_{now_utc.date()}".encode()).hexdigest()
 
-        # Registro de consentimiento (Log de Accountability)
-        legal_log = {
-            "policy_version": POLICY_VERSION,
-            "consent_timestamp": now_utc.isoformat(),
-            "accepted_privacy": check_privacy,
-            "accepted_share_data": check_share,
-            "accepted_whatsapp": check_whatsapp,
-            "user_ip_logged": True # Opcional: registrar que se guardó el log
-        }
+        # CONSOLIDACIÓN LEGAL EN EL CAMPO 'NOTAS'
+        # Esto evita el error PGRST204 al no enviar columnas que no existen en la DB
+        extended_notes = (
+            f"--- REGISTRO LEGAL ---\n"
+            f"Política: {POLICY_VERSION}\n"
+            f"Consentimiento: {now_utc.isoformat()}\n"
+            f"Aceptó Privacidad: {check_privacy}\n"
+            f"Aceptó Compartir: {check_share}\n"
+            f"Aceptó WhatsApp: {check_whatsapp}\n"
+            f"--- DATOS EXTRA ---\n"
+            f"Edad: {age_val}\n"
+            f"País: {country}\n"
+            f"Idioma: {idioma_val}\n"
+            f"Notas usuario: {notes_content}"
+        )
 
+        # Usamos solo las columnas que confirmamos en tu captura de pantalla
         payload = {
             "nombre": fn,
             "telefono": wa,
             "telefono_raw": wa,
             "dedupe_key": dedupe_key,
-            "edad": int(age_val),
             "budget": int(bg),
             "habitaciones": rm,
             "pref_genero": lw,
             "zona": ", ".join(barrios_sel) if barrios_sel else "Sin especificar",
             "inicio": m_in.isoformat(),
             "fin": m_out.isoformat(),
-            "notas": f"Country: {country}. UI_Lang: {lang}. {notes_content}",
-            "idioma": idioma_val,
-            "created_at": now_utc.isoformat(),
-            "consent_log": legal_log # GUARDAMOS EL LOG DENTRO DEL REGISTRO
+            "notas": extended_notes, # Guardamos aquí todo para que no falle
+            "created_at": now_utc.isoformat()
         }
         
         with st.spinner(t["loading"]):
