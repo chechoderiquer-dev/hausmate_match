@@ -75,7 +75,7 @@ texts = {
         "title": "📝 Encuentra tu HausMate",
         "name": "Nombre completo *", "wa": "WhatsApp (+34) *", "age": "Edad",
         "gender": "Tu género", "lw": "Preferencia de convivencia", "budget": "Presupuesto Máximo (€)",
-        "rooms": "Habitaciones en casa", "country": "País de origen",
+        "rooms": "Número máximo de habitaciones", "country": "País de origen",
         "idioma_form": "Idioma principal", "zonas": "📍 Zonas preferidas",
         "zonas_help": "Selecciona los distritos", "move_in": "¿Cuándo entras?",
         "move_out": "¿Hasta cuándo?", "notes": "Sobre ti (trabajo, hobbies...)",
@@ -108,7 +108,7 @@ texts = {
         "title": "📝 Find your HausMate",
         "name": "Full Name *", "wa": "WhatsApp (with +) *", "age": "Age",
         "gender": "Your gender", "lw": "Living preference", "budget": "Max Budget (€)",
-        "rooms": "Rooms in house", "country": "Country of origin",
+        "rooms": "Maximum number of rooms", "country": "Country of origin",
         "idioma_form": "Main language", "zonas": "📍 Preferred areas",
         "zonas_help": "Select districts", "move_in": "Move-in date",
         "move_out": "Move-out date", "notes": "About you (work, hobbies...)",
@@ -167,6 +167,7 @@ with st.form("main_form", border=False):
         pref_gender = st.selectbox(t["lw"], ["Mixto", "Solo Mujeres", "Solo Hombres"])
         country = st.text_input(t["country"], "España" if lang == "Español" else "Spain")
 
+    # Guardamos el idioma en una variable para el payload
     idioma_val = st.selectbox(t["idioma_form"], ["Spanish", "English", "French", "German", "Other"])
 
     st.write(t["zonas"])
@@ -208,18 +209,18 @@ if enviar:
         clean_wa = "".join(filter(str.isdigit, wa))
         dedupe_key = hashlib.md5(f"{clean_wa}_{now_utc.date()}".encode()).hexdigest()
 
-        # Registro legal detallado dentro del campo notas (ya que no existe columna legal_log)
+        # Registro legal detallado y DATOS DE IDIOMA dentro del campo notas
         extended_notes = (
-            f"--- DATOS COMPLEMENTARIOS ---\n"
-            f"País: {country}\n"
-            f"Idioma: {idioma_val}\n"
+            f"--- PERFIL DEL USUARIO ---\n"
+            f"Idioma Principal: {idioma_val}\n"
+            f"País de Origen: {country}\n"
             f"Comentarios: {notes_content}\n\n"
             f"--- CONSENTIMIENTO LEGAL ---\n"
             f"Política: {POLICY_VERSION}\n"
             f"Timestamp: {now_utc.isoformat()}\n"
             f"Aceptó Privacidad: Sí\n"
-            f"Aceptó Compartir: Sí\n"
-            f"Aceptó WhatsApp: Sí"
+            f"Aceptó Compartir Perfil: Sí\n"
+            f"Aceptó Contacto WhatsApp: Sí"
         )
 
         # MAPEO DE COLUMNAS EXACTO SEGÚN CAPTURAS DE SUPABASE
@@ -230,9 +231,9 @@ if enviar:
             "dedupe_key": dedupe_key,
             "budget": int(bg),
             "habitaciones": rm,
-            "pref_genero": pref_gender, # Columna confirmada en imagen f00382
-            "edad": int(age_val),       # Columna confirmada en imagen ef99c8
-            "genero": user_gender,      # Columna confirmada en imagen ef99c8
+            "pref_genero": pref_gender, 
+            "edad": int(age_val),       
+            "genero": user_gender,      
             "zona": ", ".join(barrios_sel) if barrios_sel else "Sin especificar",
             "inicio": m_in.isoformat(),
             "fin": m_out.isoformat(),
