@@ -13,6 +13,8 @@ from streamlit_folium import st_folium
 import phonenumbers
 from phonenumbers.phonenumberutil import NumberParseException
 
+from supabase import create_client, Client
+
 
 # ---------------------------
 # BRANDING (HausMate logo-like)
@@ -30,7 +32,17 @@ HM_WHITE = "#FFFFFF"
 MADRID_GEOJSON_URL = "https://raw.githubusercontent.com/codeforamerica/click_that_hood/master/public/data/madrid.geojson"
 LOCAL_GEOJSON_PATH = "data/madrid_barrios.geojson"
 
-DATA_PATH = "data/leads_store.csv"
+
+# ---------------------------
+# Supabase
+# ---------------------------
+def get_supabase() -> tuple[Client, str]:
+    url = st.secrets.get("SUPABASE_URL", "")
+    key = st.secrets.get("SUPABASE_SERVICE_ROLE_KEY", "")
+    table = st.secrets.get("SUPABASE_TABLE", "hausmate_leads")
+    if not url or not key:
+        raise RuntimeError("Supabase secrets missing. Add SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in Streamlit Secrets.")
+    return create_client(url, key), table
 
 
 # ---------------------------
@@ -38,39 +50,14 @@ DATA_PATH = "data/leads_store.csv"
 # ---------------------------
 def inject_branding():
     st.set_page_config(page_title="HausMate Match", layout="wide")
-
     st.markdown(
         f"""
         <style>
-        .stApp {{
-            background-color: {HM_BG};
-        }}
-        .block-container {{
-            padding-top: 2rem;
-        }}
-        .hm-shell {{
-            max-width: 1100px;
-            margin: 0 auto;
-        }}
-        .hm-header {{
-            display: flex;
-            align-items: center;
-            gap: 18px;
-            margin-bottom: 18px;
-        }}
-        .hm-title {{
-            font-size: 36px;
-            font-weight: 900;
-            color: {HM_WHITE};
-            margin: 0;
-            line-height: 1.0;
-        }}
-        .hm-sub {{
-            font-size: 16px;
-            color: {HM_WHITE};
-            opacity: 0.92;
-            margin: 6px 0 0 0;
-        }}
+        .stApp {{ background-color: {HM_BG}; }}
+        .block-container {{ padding-top: 2rem; }}
+        .hm-shell {{ max-width: 1100px; margin: 0 auto; }}
+        .hm-title {{ font-size: 36px; font-weight: 900; color: {HM_WHITE}; margin: 0; line-height: 1.0; }}
+        .hm-sub {{ font-size: 16px; color: {HM_WHITE}; opacity: 0.92; margin: 6px 0 0 0; }}
         .hm-card {{
             background: {HM_CARD};
             border-radius: 22px;
@@ -87,10 +74,6 @@ def inject_branding():
             margin: 5px 8px 0 0;
             font-size: 13px;
         }}
-        .hm-muted {{
-            color: rgba(31,46,47,0.72);
-            font-size: 13px;
-        }}
         div.stButton > button {{
             background-color: {HM_PRIMARY_DARK};
             color: white;
@@ -99,17 +82,12 @@ def inject_branding():
             padding: 10px 18px;
             font-weight: 800;
         }}
-        div.stButton > button:hover {{
-            background-color: {HM_PRIMARY};
-            color: white;
-        }}
+        div.stButton > button:hover {{ background-color: {HM_PRIMARY}; color: white; }}
         label, .stTextInput label, .stNumberInput label, .stSelectbox label, .stRadio label {{
             font-weight: 800 !important;
             color: {HM_TEXT} !important;
         }}
-        .stProgress > div > div > div {{
-            background-color: {HM_PRIMARY_DARK};
-        }}
+        .stProgress > div > div > div {{ background-color: {HM_PRIMARY_DARK}; }}
         </style>
         """,
         unsafe_allow_html=True,
@@ -145,7 +123,6 @@ def footer_close_shell():
 # Admin auth (results private)
 # ---------------------------
 def is_admin() -> bool:
-    # store a session flag
     if "is_admin" not in st.session_state:
         st.session_state.is_admin = False
 
@@ -196,41 +173,6 @@ def make_dedupe_key(phone_e164: str):
 
 
 # ---------------------------
-# Storage (CSV)
-# ---------------------------
-def load_store() -> pd.DataFrame:
-    try:
-        return pd.read_csv(DATA_PATH)
-    except Exception:
-        return pd.DataFrame()
-
-
-def save_store(df: pd.DataFrame):
-    Path("data").mkdir(parents=True, exist_ok=True)
-    df.to_csv(DATA_PATH, index=False)
-
-
-def upsert_store(row: dict):
-    df = load_store()
-    if df.empty:
-        df = pd.DataFrame([row])
-    else:
-        if "dedupe_key" not in df.columns:
-            df["dedupe_key"] = ""
-        for k in row.keys():
-            if k not in df.columns:
-                df[k] = None
-
-        mask = df["dedupe_key"] == row["dedupe_key"]
-        if mask.any():
-            df.loc[mask, list(row.keys())] = pd.DataFrame([row]).iloc[0].values
-        else:
-            df = pd.concat([df, pd.DataFrame([row])], ignore_index=True)
-
-    save_store(df)
-
-
-# ---------------------------
 # GeoJSON + Point-in-Polygon (pure python)
 # ---------------------------
 def ensure_geojson(local_path: str = LOCAL_GEOJSON_PATH):
@@ -278,7 +220,6 @@ def load_neighborhood_index():
 
     features = gj.get("features", [])
     index = []
-
     for feat in features:
         props = feat.get("properties", {}) or {}
         name = props.get("name") or props.get("NAME") or "—"
@@ -288,7 +229,6 @@ def load_neighborhood_index():
 
         polygons = []
         bboxes = []
-
         if gtype == "Polygon":
             polygons.append(coords)
             bboxes.append(_bbox_of_ring(coords[0]))
@@ -386,8 +326,7 @@ def calc_score(row: dict) -> tuple[int, dict]:
     score += ops
     breakdown["operativo"] = ops
 
-    score = max(0, min(100, score))
-    return score, breakdown
+    return max(0, min(100, score)), breakdown
 
 
 def whatsapp_message(row: dict) -> str:
@@ -408,7 +347,22 @@ def export_xlsx(df: pd.DataFrame) -> bytes:
 
 
 # ---------------------------
-# Wizard
+# Supabase I/O
+# ---------------------------
+def supabase_upsert(row: dict):
+    sb, table = get_supabase()
+    sb.table(table).upsert(row, on_conflict="dedupe_key").execute()
+
+
+def supabase_fetch_all(limit: int = 5000) -> pd.DataFrame:
+    sb, table = get_supabase()
+    resp = sb.table(table).select("*").order("created_at", desc=True).limit(limit).execute()
+    data = resp.data or []
+    return pd.DataFrame(data)
+
+
+# ---------------------------
+# Wizard state
 # ---------------------------
 def init_state():
     defaults = dict(
@@ -425,7 +379,6 @@ def init_state():
         fin=date.today(),
         max_compartir_con=2,
         banos_min=1,
-        # NUEVO: habitaciones (10+ opciones)
         habitaciones="Studio",
         notas="",
     )
@@ -442,7 +395,7 @@ def stepper():
 
 
 def nav_buttons(can_back=True, can_next=True, next_label="Continuar"):
-    c1, c2, c3 = st.columns([1, 2, 1])
+    c1, _, c3 = st.columns([1, 2, 1])
     with c1:
         if can_back and st.button("⬅️ Atrás", use_container_width=True):
             st.session_state.step = max(0, st.session_state.step - 1)
@@ -454,9 +407,7 @@ def nav_buttons(can_back=True, can_next=True, next_label="Continuar"):
 
 
 def render_map(geojson_obj, selected_names):
-    # Rebuild map each rerun so selected polygons stay colored
     m = folium.Map(location=[40.4168, -3.7038], zoom_start=11, control_scale=True)
-
     selected = set(selected_names or [])
 
     def style_fn(feature):
@@ -483,14 +434,11 @@ def render_map(geojson_obj, selected_names):
     return st_folium(m, height=520, width=None)
 
 
-# ---------------------------
-# Main
-# ---------------------------
 def main():
     inject_branding()
     init_state()
 
-    admin = is_admin()  # sidebar login
+    admin = is_admin()
     header()
     stepper()
 
@@ -544,7 +492,7 @@ def main():
                         st.session_state.zonas_selected.remove(barrio)
                     else:
                         st.session_state.zonas_selected.append(barrio)
-                    st.rerun()  # refresca para que se quede “pintado” al instante
+                    st.rerun()
 
             if st.session_state.zonas_selected:
                 st.markdown("**Seleccionados:**")
@@ -584,7 +532,8 @@ def main():
     elif step == 7:
         st.subheader("¿Cuántas habitaciones quieres? 🛏️")
         options = ["Studio", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10+"]
-        st.session_state.habitaciones = st.selectbox("Habitaciones", options, index=options.index(st.session_state.habitaciones) if st.session_state.habitaciones in options else 0)
+        idx = options.index(st.session_state.habitaciones) if st.session_state.habitaciones in options else 0
+        st.session_state.habitaciones = st.selectbox("Habitaciones", options, index=idx)
         nav_buttons()
 
     elif step == 8:
@@ -604,84 +553,80 @@ def main():
         else:
             zona_str = "|".join(st.session_state.zonas_selected) if st.session_state.zonas_selected else "—"
 
-            # Leads
-            excel_row = {
-                "nombre": st.session_state.nombre.strip(),
+            lead = {
+                "dedupe_key": make_dedupe_key(phone_e164),
                 "telefono": phone_e164,
+                "telefono_raw": st.session_state.telefono_raw,
+                "telefono_country": country,
+                "telefono_region": region,
+
+                "nombre": st.session_state.nombre.strip(),
                 "edad": int(st.session_state.edad),
                 "genero": st.session_state.genero,
                 "pref_genero": st.session_state.pref_genero,
                 "idioma": st.session_state.idioma,
                 "zona": zona_str,
                 "budget": int(st.session_state.budget),
-                "inicio": st.session_state.inicio,
-                "fin": st.session_state.fin,
+                "inicio": st.session_state.inicio.isoformat(),
+                "fin": st.session_state.fin.isoformat(),
                 "max_compartir_con": int(st.session_state.max_compartir_con),
                 "banos_min": int(st.session_state.banos_min),
-                "habitaciones": st.session_state.habitaciones,  # NUEVO
+                "habitaciones": st.session_state.habitaciones,
                 "notas": (st.session_state.notas or "").strip(),
             }
 
-            score, breakdown = calc_score(excel_row)
+            score, breakdown = calc_score({
+                **lead,
+                "inicio": st.session_state.inicio,
+                "fin": st.session_state.fin,
+            })
+            lead["match_score"] = int(score)
+            lead["score_breakdown"] = breakdown
+
             st.metric("Match Score", f"{score}/100")
             st.write("**Detalle:**", breakdown)
+            st.text_area("Generate WhatsApp introduction message", value=whatsapp_message(lead), height=120)
 
-            st.text_area("Generate WhatsApp introduction message", value=whatsapp_message(excel_row), height=120)
+            try:
+                supabase_upsert({
+                    **lead,
+                    "score_breakdown": json.dumps(breakdown, ensure_ascii=False),
+                })
+                st.success("¡Gracias! Tu respuesta fue enviada ✅")
+            except Exception as e:
+                st.error("No pude guardar tu respuesta en este momento.")
+                st.code(str(e))
 
-            # Save (anti-duplicados)
-            dedupe_key = make_dedupe_key(phone_e164)
-            store_row = {
-                **excel_row,
-                "telefono_raw": st.session_state.telefono_raw,
-                "telefono_country": country,
-                "telefono_region": region,
-                "dedupe_key": dedupe_key,
-                "match_score": score,
-                "score_breakdown": json.dumps(breakdown, ensure_ascii=False),
-            }
-            upsert_store(store_row)
-
-            st.success("¡Gracias! Tu respuesta fue enviada ✅")
-
-            # 🔐 SOLO ADMIN ve resultados/export
             if admin:
                 st.markdown("---")
-                st.subheader("📦 Admin: Resultados")
+                st.subheader("📦 Admin: Resultados (solo tú)")
+                try:
+                    df = supabase_fetch_all()
 
-                df_store = load_store()
-                export_cols = [
-                    "nombre", "telefono", "edad", "genero", "pref_genero", "idioma", "zona",
-                    "budget", "inicio", "fin", "max_compartir_con", "banos_min", "habitaciones", "notas"
-                ]
-                df_export = df_store[export_cols].copy() if not df_store.empty else pd.DataFrame(columns=export_cols)
+                    export_cols = [
+                        "nombre", "telefono", "edad", "genero", "pref_genero", "idioma", "zona",
+                        "budget", "inicio", "fin", "max_compartir_con", "banos_min", "habitaciones", "notas"
+                    ]
+                    df_export = df[export_cols].copy() if (not df.empty and all(c in df.columns for c in export_cols)) else df
 
-                st.download_button(
-                    "⬇️ Descargar Excel (leads)",
-                    data=export_xlsx(df_export),
-                    file_name="hausmate_match_leads.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True,
-                )
+                    st.download_button(
+                        "⬇️ Descargar Excel (leads)",
+                        data=export_xlsx(df_export),
+                        file_name="hausmate_match_leads.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True,
+                    )
 
-                with st.expander("Ver tabla (solo admin)"):
-                    st.dataframe(df_export, use_container_width=True)
+                    with st.expander("Ver tabla (solo admin)"):
+                        st.dataframe(df_export, use_container_width=True)
+                except Exception as e:
+                    st.error("No pude leer resultados desde Supabase.")
+                    st.code(str(e))
 
             if st.button("➕ Nuevo registro", use_container_width=True):
-                st.session_state.step = 0
-                st.session_state.nombre = ""
-                st.session_state.telefono_raw = ""
-                st.session_state.edad = 25
-                st.session_state.genero = ""
-                st.session_state.pref_genero = ""
-                st.session_state.idioma = "Español"
-                st.session_state.zonas_selected = []
-                st.session_state.budget = 1500
-                st.session_state.inicio = date.today()
-                st.session_state.fin = date.today()
-                st.session_state.max_compartir_con = 2
-                st.session_state.banos_min = 1
-                st.session_state.habitaciones = "Studio"
-                st.session_state.notas = ""
+                for k in ["step","nombre","telefono_raw","edad","genero","pref_genero","idioma","zonas_selected","budget","inicio","fin","max_compartir_con","banos_min","habitaciones","notas"]:
+                    if k in st.session_state:
+                        del st.session_state[k]
                 st.rerun()
 
     st.markdown("</div></div>", unsafe_allow_html=True)
