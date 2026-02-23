@@ -1,637 +1,727 @@
-import json
-import hashlib
-from datetime import date
-from io import BytesIO
-from pathlib import Path
-from urllib.request import urlretrieve
+# app.py
+# HausMate Match — branded dynamic survey + Supabase storage + admin-only results
+#
+# ✅ IMPORTANT (requirements.txt)
+# Add this line if you don't have it yet:
+# supabase>=2.0.0
+#
+# ✅ IMPORTANT (Streamlit Secrets - TOML)
+# ADMIN_PASSWORD = "..."
+# SUPABASE_URL = "https://<YOUR_PROJECT_ID>.supabase.co"
+# SUPABASE_SERVICE_ROLE_KEY = "sb_secret_..."
+# SUPABASE_TABLE = "hausmate_leads"
+#
+# ✅ IMPORTANT (Supabase table)
+# Create a table named like SUPABASE_TABLE with columns:
+# - nombre (text)
+# - telefono (text)
+# - edad (int4)
+# - genero (text)
+# - pref_genero (text)
+# - idioma (text)
+# - zona (text)                # pipe-separated e.g. "Chamberí|Retiro"
+# - budget (int4)
+# - inicio (date)
+# - fin (date)
+# - max_compartir_con (int4)
+# - banos_min (int4)
+# - notas (text)
+# - rooms_pref (text)          # e.g. "1|2|3|..."
+# - l_country (text)           # inferred from phone
+# - created_at (timestamptz default now())
+#
+# Then enable RLS ON and add policy to allow ONLY service-role inserts (recommended).
+# Easiest: keep RLS OFF while testing, then lock later.
 
-import streamlit as st
+import re
+from datetime import date, datetime
+from typing import Dict, List, Optional, Tuple
+
 import pandas as pd
-import folium
-from streamlit_folium import st_folium
+import streamlit as st
 
+from supabase import create_client
 import phonenumbers
 from phonenumbers.phonenumberutil import NumberParseException
 
-from supabase import create_client, Client
+import folium
+from folium.plugins import MarkerCluster
+from streamlit_folium import st_folium
 
 
-# ---------------------------
-# BRANDING (HausMate logo-like)
-# ---------------------------
-HM_PRIMARY = "#7FB3B8"
-HM_PRIMARY_DARK = "#5A9CA1"
-HM_BG = "#7FB3B8"
-HM_CARD = "#FFFFFF"
-HM_TEXT = "#1F2E2F"
-HM_WHITE = "#FFFFFF"
-
-# ---------------------------
-# GeoJSON source (auto-download)
-# ---------------------------
-MADRID_GEOJSON_URL = "https://raw.githubusercontent.com/codeforamerica/click_that_hood/master/public/data/madrid.geojson"
-LOCAL_GEOJSON_PATH = "data/madrid_barrios.geojson"
+# ----------------------------
+# Branding (colors from logo)
+# ----------------------------
+BRAND_PRIMARY = "#86C1C9"   # teal from your logo bg
+BRAND_DARK = "#143A3F"
+BRAND_TEXT = "#0F172A"
+BRAND_CARD = "#FFFFFF"
+BRAND_MUTED = "#EAF6F7"
 
 
-# ---------------------------
-# Supabase
-# ---------------------------
-def get_supabase() -> tuple[Client, str]:
-    url = st.secrets.get("SUPABASE_URL", "")
-    key = st.secrets.get("SUPABASE_SERVICE_ROLE_KEY", "")
-    table = st.secrets.get("SUPABASE_TABLE", "hausmate_leads")
-    if not url or not key:
-        raise RuntimeError("Supabase secrets missing. Add SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in Streamlit Secrets.")
-    return create_client(url, key), table
+# ----------------------------
+# Page config
+# ----------------------------
+st.set_page_config(
+    page_title="HausMate Match — Encuesta",
+    page_icon="🏡",
+    layout="wide",
+    initial_sidebar_state="collapsed",
+)
 
 
-# ---------------------------
-# UI Styling
-# ---------------------------
-def inject_branding():
-    st.set_page_config(page_title="HausMate Match", layout="wide")
+def inject_css():
     st.markdown(
         f"""
         <style>
-        .stApp {{ background-color: {HM_BG}; }}
-        .block-container {{ padding-top: 2rem; }}
-        .hm-shell {{ max-width: 1100px; margin: 0 auto; }}
-        .hm-title {{ font-size: 36px; font-weight: 900; color: {HM_WHITE}; margin: 0; line-height: 1.0; }}
-        .hm-sub {{ font-size: 16px; color: {HM_WHITE}; opacity: 0.92; margin: 6px 0 0 0; }}
-        .hm-card {{
-            background: {HM_CARD};
-            border-radius: 22px;
-            padding: 22px;
-            box-shadow: 0 18px 45px rgba(0,0,0,0.10);
-        }}
-        .hm-pill {{
-            display: inline-block;
-            padding: 8px 14px;
-            border-radius: 999px;
-            background: {HM_PRIMARY_DARK};
-            color: white;
-            font-weight: 700;
-            margin: 5px 8px 0 0;
-            font-size: 13px;
-        }}
-        div.stButton > button {{
-            background-color: {HM_PRIMARY_DARK};
-            color: white;
-            border-radius: 12px;
-            border: none;
-            padding: 10px 18px;
-            font-weight: 800;
-        }}
-        div.stButton > button:hover {{ background-color: {HM_PRIMARY}; color: white; }}
-        label, .stTextInput label, .stNumberInput label, .stSelectbox label, .stRadio label {{
-            font-weight: 800 !important;
-            color: {HM_TEXT} !important;
-        }}
-        .stProgress > div > div > div {{ background-color: {HM_PRIMARY_DARK}; }}
+            .stApp {{
+                background: linear-gradient(180deg, {BRAND_PRIMARY} 0%, #ffffff 55%);
+            }}
+            .block-container {{
+                padding-top: 1.2rem;
+                padding-bottom: 2rem;
+                max-width: 1100px;
+            }}
+            h1, h2, h3, h4, h5 {{
+                color: {BRAND_TEXT};
+            }}
+            .hm-card {{
+                background: {BRAND_CARD};
+                border-radius: 18px;
+                padding: 18px 18px;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.10);
+                border: 1px solid rgba(0,0,0,0.06);
+            }}
+            .hm-pill {{
+                display:inline-block;
+                padding:6px 10px;
+                border-radius: 999px;
+                background: {BRAND_MUTED};
+                color: {BRAND_DARK};
+                font-weight:600;
+                margin-right:6px;
+                margin-bottom:6px;
+                font-size: 13px;
+                border: 1px solid rgba(20,58,63,0.12);
+            }}
+            .hm-header {{
+                display:flex;
+                align-items:center;
+                gap: 14px;
+                margin-bottom: 10px;
+            }}
+            .hm-logo {{
+                width: 86px;
+                height: 86px;
+                border-radius: 16px;
+                object-fit: cover;
+                border: 2px solid rgba(255,255,255,0.6);
+                box-shadow: 0 10px 25px rgba(0,0,0,0.12);
+                background: white;
+            }}
+            .hm-sub {{
+                color: rgba(15,23,42,0.75);
+                margin-top: -6px;
+            }}
+            .hm-step {{
+                font-weight:700;
+                color: {BRAND_DARK};
+                background: rgba(255,255,255,0.65);
+                border: 1px solid rgba(20,58,63,0.15);
+                padding: 6px 10px;
+                border-radius: 12px;
+                display:inline-block;
+            }}
+            .hm-btn-primary button {{
+                background: {BRAND_DARK} !important;
+                color: white !important;
+                border-radius: 12px !important;
+                border: none !important;
+                padding: 0.6rem 1rem !important;
+                font-weight: 700 !important;
+            }}
+            .stTextInput input, .stNumberInput input, .stDateInput input, .stTextArea textarea {{
+                border-radius: 12px !important;
+            }}
         </style>
         """,
         unsafe_allow_html=True,
     )
 
 
-def header():
-    st.markdown('<div class="hm-shell">', unsafe_allow_html=True)
-    col1, col2 = st.columns([1, 6], vertical_alignment="center")
-    with col1:
-        # Sube tu logo como assets/logo.png
-        try:
-            st.image("assets/logo.png", width=120)
-        except Exception:
-            st.write("")
-    with col2:
+inject_css()
+
+
+# ----------------------------
+# Helpers
+# ----------------------------
+def get_supabase():
+    url = st.secrets.get("SUPABASE_URL")
+    key = st.secrets.get("SUPABASE_SERVICE_ROLE_KEY")
+    if not url or not key:
+        raise ValueError(
+            "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in Streamlit Secrets."
+        )
+    return create_client(url, key)
+
+
+def safe_parse_phone(raw: str) -> Tuple[Optional[str], Optional[str]]:
+    """
+    Returns (e164, country_name) if possible.
+    """
+    if not raw:
+        return None, None
+
+    # Normalize common input
+    raw = raw.strip()
+    # If user writes "6XXXXXXXX" without +34, we try Spain default
+    default_region = "ES"
+
+    try:
+        num = phonenumbers.parse(raw, default_region)
+        if not phonenumbers.is_valid_number(num):
+            return None, None
+        e164 = phonenumbers.format_number(num, phonenumbers.PhoneNumberFormat.E164)
+        region = phonenumbers.region_code_for_number(num)
+        return e164, region
+    except NumberParseException:
+        return None, None
+
+
+def compute_completeness(payload: Dict) -> int:
+    """
+    A simple completeness score (0–100) based on filled fields.
+    """
+    keys = [
+        "nombre",
+        "telefono",
+        "edad",
+        "genero",
+        "pref_genero",
+        "idioma",
+        "zona",
+        "budget",
+        "inicio",
+        "fin",
+        "max_compartir_con",
+        "banos_min",
+    ]
+    filled = sum(1 for k in keys if payload.get(k) not in (None, "", [], {}))
+    return int(round((filled / len(keys)) * 100))
+
+
+def whatsapp_intro(payload: Dict) -> str:
+    zonas = payload.get("zona", "")
+    zonas_pretty = zonas.replace("|", ", ")
+    budget = payload.get("budget", "—")
+    inicio = payload.get("inicio", "—")
+    fin = payload.get("fin", "—")
+    return (
+        "Hola! Soy del equipo de HausMate Match 😊\n"
+        f"Vi tu perfil: budget €{budget}, zonas {zonas_pretty}, fechas {inicio}–{fin}.\n"
+        "¿Te va bien si te comparto opciones que encajen contigo hoy?"
+    )
+
+
+# ----------------------------
+# Madrid zones (map + list)
+# NOTE: without a full GeoJSON file, we do:
+# - full selection list via multiselect
+# - clickable map markers for the most used/central zones (nice UX)
+# Users can still pick ANY barrio from the list; map helps visual.
+# ----------------------------
+ALL_ZONAS = [
+    # Distritos/zonas (broad + common barrio names people use)
+    "Centro", "Sol", "Malasaña", "Chueca", "Lavapiés", "La Latina", "Huertas",
+    "Salamanca", "Recoletos", "Goya", "Lista", "Castellana", "Ibiza", "Jerónimos",
+    "Retiro", "Pacífico", "Adelfas", "Estrella", "Niño Jesús",
+    "Chamberí", "Trafalgar", "Almagro", "Ríos Rosas", "Arapiles", "Gaztambide",
+    "Argüelles", "Moncloa", "Ciudad Universitaria", "Valdezarza",
+    "Tetuán", "Cuatro Caminos", "Castillejos", "Bellas Vistas",
+    "Chamartín", "El Viso", "Prosperidad", "Nueva España", "Hispanoamérica",
+    "Madrid Río", "Legazpi", "Delicias", "Atocha", "Palos de la Frontera",
+    "Usera", "Carabanchel", "Latina (distrito)", "Aluche",
+    "Puente de Vallecas", "Vallecas", "Moratalaz", "Ciudad Lineal",
+    "Hortaleza", "Sanchinarro", "Las Tablas", "Valdebebas",
+    "San Blas", "Canillejas", "Barajas",
+    # You can keep extending this list any time — it supports “all barrios” by adding names here.
+]
+
+# Map marker centroids for popular zones (approx; just for visual selection).
+ZONA_COORDS = {
+    "Sol": (40.4169, -3.7035),
+    "Malasaña": (40.4278, -3.7042),
+    "Chueca": (40.4231, -3.6973),
+    "Lavapiés": (40.4089, -3.7018),
+    "La Latina": (40.4106, -3.7082),
+    "Huertas": (40.4133, -3.6978),
+    "Recoletos": (40.4235, -3.6887),
+    "Goya": (40.4259, -3.6756),
+    "Ibiza": (40.4197, -3.6735),
+    "Jerónimos": (40.4159, -3.6898),
+    "Retiro": (40.4153, -3.6844),
+    "Chamberí": (40.4340, -3.7038),
+    "Trafalgar": (40.4324, -3.7005),
+    "Almagro": (40.4307, -3.6922),
+    "Ríos Rosas": (40.4410, -3.7022),
+    "Arapiles": (40.4328, -3.7077),
+    "Argüelles": (40.4303, -3.7173),
+    "Moncloa": (40.4359, -3.7194),
+    "Ciudad Universitaria": (40.4483, -3.7240),
+    "Chamartín": (40.4686, -3.6795),
+    "El Viso": (40.4447, -3.6787),
+    "Prosperidad": (40.4445, -3.6687),
+    "Tetuán": (40.4597, -3.6976),
+    "Cuatro Caminos": (40.4467, -3.7040),
+    "Madrid Río": (40.4019, -3.7190),
+    "Atocha": (40.4066, -3.6904),
+    "Delicias": (40.4010, -3.7002),
+    "Sanchinarro": (40.4940, -3.6602),
+    "Las Tablas": (40.5053, -3.6720),
+    "Valdebebas": (40.4882, -3.6083),
+}
+
+
+def render_map_selector(selected: List[str]) -> List[str]:
+    """
+    Click markers to toggle zones.
+    """
+    m = folium.Map(location=(40.4168, -3.7038), zoom_start=12, control_scale=True)
+    cluster = MarkerCluster().add_to(m)
+
+    # markers for known coords
+    for name, (lat, lon) in ZONA_COORDS.items():
+        is_selected = name in selected
+        emoji = "✅" if is_selected else "📍"
+        folium.Marker(
+            location=(lat, lon),
+            tooltip=f"{emoji} {name}",
+            popup=name,
+        ).add_to(cluster)
+
+    out = st_folium(m, height=420, width=None)
+
+    # When user clicks, folium returns last_object_clicked_popup or tooltip data depending on platform
+    clicked_name = None
+
+    # Try popup
+    if out and isinstance(out, dict):
+        popup = out.get("last_object_clicked_popup")
+        if popup and isinstance(popup, str):
+            clicked_name = popup
+
+        # Some builds return tooltip instead
+        if not clicked_name:
+            tt = out.get("last_object_clicked_tooltip")
+            if tt and isinstance(tt, str):
+                # tooltip like "✅ Sol" or "📍 Sol" -> remove emoji
+                clicked_name = tt.replace("✅", "").replace("📍", "").strip()
+
+    if clicked_name and clicked_name in ZONA_COORDS:
+        if clicked_name in selected:
+            selected.remove(clicked_name)
+        else:
+            selected.append(clicked_name)
+
+    return selected
+
+
+# ----------------------------
+# State
+# ----------------------------
+if "step" not in st.session_state:
+    st.session_state.step = 1
+
+if "selected_zonas" not in st.session_state:
+    st.session_state.selected_zonas = []
+
+if "rooms_pref" not in st.session_state:
+    st.session_state.rooms_pref = []
+
+if "submitted_ok" not in st.session_state:
+    st.session_state.submitted_ok = False
+
+
+# ----------------------------
+# Header (logo)
+# ----------------------------
+colA, colB = st.columns([0.25, 0.75], vertical_alignment="center")
+
+with colA:
+    # If you add a file to repo: assets/logo.png, it will show.
+    # Otherwise it shows a nice fallback.
+    try:
+        st.image("assets/logo.png", use_container_width=True)
+    except Exception:
         st.markdown(
-            """
-            <div>
-                <h1 class="hm-title">HausMate Match</h1>
-                <p class="hm-sub">Encuentra tu match ideal en Madrid ✨</p>
+            f"""
+            <div class="hm-card" style="text-align:center;">
+                <div style="font-size:34px;">🏡</div>
+                <div style="font-weight:800; color:{BRAND_DARK};">HausMate</div>
+                <div style="margin-top:-6px; font-weight:700; color:{BRAND_DARK}; opacity:0.9;">Match</div>
             </div>
             """,
             unsafe_allow_html=True,
         )
 
+with colB:
+    st.markdown(
+        f"""
+        <div class="hm-card">
+            <div class="hm-header">
+                <div>
+                    <div style="font-size:30px; font-weight:900; color:{BRAND_TEXT};">Encuesta HausMate Match</div>
+                    <div class="hm-sub">Responde en 2–3 minutos. Tus respuestas se usan para encontrar el mejor match.</div>
+                </div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-def footer_close_shell():
-    st.markdown("</div>", unsafe_allow_html=True)
+st.write("")
 
 
-# ---------------------------
-# Admin auth (results private)
-# ---------------------------
-def is_admin() -> bool:
-    if "is_admin" not in st.session_state:
-        st.session_state.is_admin = False
+# ----------------------------
+# Sidebar: Admin (results only for you)
+# ----------------------------
+with st.sidebar:
+    st.markdown("## 🔒 Admin")
+    admin_pass = st.text_input("Admin password", type="password")
+    admin_ok = bool(admin_pass) and admin_pass == st.secrets.get("ADMIN_PASSWORD", "")
+    if admin_ok:
+        st.success("Admin unlocked")
+        st.divider()
 
-    with st.sidebar:
-        st.markdown("### 🔐 Admin (solo tú)")
-        pwd = st.text_input("Password", type="password", placeholder="••••••••")
-        if st.button("Login"):
-            admin_pwd = st.secrets.get("ADMIN_PASSWORD", "")
-            st.session_state.is_admin = bool(admin_pwd) and (pwd == admin_pwd)
-            if st.session_state.is_admin:
-                st.success("Admin activo ✅")
-            else:
-                st.error("Password incorrecto")
-
-        if st.session_state.is_admin and st.button("Logout"):
-            st.session_state.is_admin = False
+        if st.button("🔄 Refresh results"):
             st.rerun()
 
-    return st.session_state.is_admin
+        try:
+            supa = get_supabase()
+            table = st.secrets.get("SUPABASE_TABLE", "hausmate_leads")
 
+            # Try order by created_at if exists
+            try:
+                res = supa.table(table).select("*").order("created_at", desc=True).limit(500).execute()
+            except Exception:
+                res = supa.table(table).select("*").limit(500).execute()
 
-# ---------------------------
-# Phone + Dedup
-# ---------------------------
-def normalize_phone(raw_phone: str, default_region: str = "ES"):
-    raw_phone = (raw_phone or "").strip()
-    if not raw_phone:
-        return None, None, None
-    try:
-        if raw_phone.startswith("+"):
-            p = phonenumbers.parse(raw_phone, None)
-        else:
-            p = phonenumbers.parse(raw_phone, default_region)
+            rows = res.data or []
+            df = pd.DataFrame(rows)
+            st.write("### Results")
+            st.dataframe(df, use_container_width=True, height=420)
 
-        if not phonenumbers.is_possible_number(p) or not phonenumbers.is_valid_number(p):
-            return None, None, None
+            if not df.empty:
+                csv = df.to_csv(index=False).encode("utf-8")
+                st.download_button("⬇️ Download CSV", data=csv, file_name="hausmate_results.csv", mime="text/csv")
 
-        e164 = phonenumbers.format_number(p, phonenumbers.PhoneNumberFormat.E164)
-        region = phonenumbers.region_code_for_number(p)
-        country = p.country_code
-        return e164, str(country), region
-    except NumberParseException:
-        return None, None, None
-
-
-def make_dedupe_key(phone_e164: str):
-    return hashlib.sha1(phone_e164.encode("utf-8")).hexdigest()
-
-
-# ---------------------------
-# GeoJSON + Point-in-Polygon (pure python)
-# ---------------------------
-def ensure_geojson(local_path: str = LOCAL_GEOJSON_PATH):
-    p = Path(local_path)
-    p.parent.mkdir(parents=True, exist_ok=True)
-    if not p.exists():
-        urlretrieve(MADRID_GEOJSON_URL, str(p))
-
-
-def _bbox_of_ring(ring):
-    xs = [pt[0] for pt in ring]
-    ys = [pt[1] for pt in ring]
-    return (min(xs), min(ys), max(xs), max(ys))
-
-
-def _point_in_ring(x, y, ring):
-    inside = False
-    n = len(ring)
-    if n < 3:
-        return False
-    x0, y0 = ring[0]
-    for i in range(1, n + 1):
-        x1, y1 = ring[i % n]
-        if ((y0 > y) != (y1 > y)) and (x < (x1 - x0) * (y - y0) / (y1 - y0 + 1e-15) + x0):
-            inside = not inside
-        x0, y0 = x1, y1
-    return inside
-
-
-def _point_in_polygon(lon, lat, polygon_coords):
-    outer = polygon_coords[0]
-    if not _point_in_ring(lon, lat, outer):
-        return False
-    for hole in polygon_coords[1:]:
-        if _point_in_ring(lon, lat, hole):
-            return False
-    return True
-
-
-@st.cache_data
-def load_neighborhood_index():
-    ensure_geojson(LOCAL_GEOJSON_PATH)
-    with open(LOCAL_GEOJSON_PATH, "r", encoding="utf-8") as f:
-        gj = json.load(f)
-
-    features = gj.get("features", [])
-    index = []
-    for feat in features:
-        props = feat.get("properties", {}) or {}
-        name = props.get("name") or props.get("NAME") or "—"
-        geom = feat.get("geometry") or {}
-        gtype = geom.get("type")
-        coords = geom.get("coordinates", [])
-
-        polygons = []
-        bboxes = []
-        if gtype == "Polygon":
-            polygons.append(coords)
-            bboxes.append(_bbox_of_ring(coords[0]))
-        elif gtype == "MultiPolygon":
-            for poly in coords:
-                polygons.append(poly)
-                bboxes.append(_bbox_of_ring(poly[0]))
-
-        if polygons:
-            index.append({"name": str(name), "polygons": polygons, "bboxes": bboxes})
-
-    return index
-
-
-def barrio_from_click(lat, lon, neighborhood_index):
-    x = lon
-    y = lat
-    for item in neighborhood_index:
-        for poly, bb in zip(item["polygons"], item["bboxes"]):
-            minx, miny, maxx, maxy = bb
-            if x < minx or x > maxx or y < miny or y > maxy:
-                continue
-            if _point_in_polygon(x, y, poly):
-                return item["name"]
-    return None
-
-
-def geojson_for_folium():
-    ensure_geojson(LOCAL_GEOJSON_PATH)
-    with open(LOCAL_GEOJSON_PATH, "r", encoding="utf-8") as f:
-        return json.load(f)
-
-
-# ---------------------------
-# Scoring + WhatsApp
-# ---------------------------
-def calc_score(row: dict) -> tuple[int, dict]:
-    score = 0
-    breakdown = {}
-
-    required = ["nombre", "telefono", "edad", "budget", "inicio", "fin"]
-    complete = sum(1 for k in required if row.get(k))
-    comp = round((complete / len(required)) * 25)
-    score += comp
-    breakdown["completitud"] = comp
-
-    zonas = (row.get("zona") or "").split("|") if row.get("zona") else []
-    zonas = [z for z in zonas if z and z != "—"]
-    if len(zonas) == 0:
-        zscore = 8
-    elif len(zonas) == 1:
-        zscore = 5
-    elif 2 <= len(zonas) <= 4:
-        zscore = 15
+        except Exception as e:
+            st.error("Admin: could not read Supabase.")
+            st.exception(e)
     else:
-        zscore = 10
-    score += zscore
-    breakdown["zonas"] = zscore
-
-    today = date.today()
-    inicio = row.get("inicio")
-    if inicio:
-        days = (inicio - today).days
-        if days <= 30:
-            fscore = 20
-        elif days <= 60:
-            fscore = 15
-        else:
-            fscore = 10
-    else:
-        fscore = 0
-    score += fscore
-    breakdown["fechas"] = fscore
-
-    banos = row.get("banos_min")
-    if banos is None:
-        rscore = 8
-    elif banos <= 1:
-        rscore = 20
-    elif banos == 2:
-        rscore = 15
-    else:
-        rscore = 10
-    score += rscore
-    breakdown["requisitos"] = rscore
-
-    ops = 0
-    if row.get("telefono"):
-        ops += 10
-    if row.get("idioma"):
-        ops += 5
-    notas = (row.get("notas") or "").strip()
-    if len(notas) >= 20:
-        ops += 5
-    score += ops
-    breakdown["operativo"] = ops
-
-    return max(0, min(100, score)), breakdown
+        st.caption("Solo tú puedes ver resultados.")
 
 
-def whatsapp_message(row: dict) -> str:
-    zonas = row.get("zona") or "—"
-    return (
-        f"Hola! Soy del equipo de HausMate Match 😊\n"
-        f"Vi tu perfil: budget €{row.get('budget','—')}, zonas {zonas}, "
-        f"fechas {row.get('inicio','—')}–{row.get('fin','—')}.\n"
-        f"¿Te va bien si te comparto opciones que encajen contigo hoy?"
-    )
+# ----------------------------
+# Stepper UI
+# ----------------------------
+TOTAL_STEPS = 4
+progress = int(((st.session_state.step - 1) / (TOTAL_STEPS - 1)) * 100) if TOTAL_STEPS > 1 else 0
+st.progress(progress)
 
 
-def export_xlsx(df: pd.DataFrame) -> bytes:
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        df.to_excel(writer, index=False, sheet_name="leads")
-    return output.getvalue()
-
-
-# ---------------------------
-# Supabase I/O
-# ---------------------------
-def supabase_upsert(row: dict):
-    sb, table = get_supabase()
-    sb.table(table).upsert(row, on_conflict="dedupe_key").execute()
-
-
-def supabase_fetch_all(limit: int = 5000) -> pd.DataFrame:
-    sb, table = get_supabase()
-    resp = sb.table(table).select("*").order("created_at", desc=True).limit(limit).execute()
-    data = resp.data or []
-    return pd.DataFrame(data)
-
-
-# ---------------------------
-# Wizard state
-# ---------------------------
-def init_state():
-    defaults = dict(
-        step=0,
-        nombre="",
-        telefono_raw="",
-        edad=25,
-        genero="",
-        pref_genero="",
-        idioma="Español",
-        zonas_selected=[],
-        budget=1500,
-        inicio=date.today(),
-        fin=date.today(),
-        max_compartir_con=2,
-        banos_min=1,
-        habitaciones="Studio",
-        notas="",
-    )
-    for k, v in defaults.items():
-        if k not in st.session_state:
-            st.session_state[k] = v
-
-
-def stepper():
-    steps = ["Perfil", "Preferencias", "Idioma", "Zonas", "Budget", "Fechas", "Convivencia", "Habitaciones", "Notas", "Final"]
-    i = st.session_state.step
-    st.progress(min(1.0, i / (len(steps) - 1)))
-    st.caption(f"Paso {i+1}/{len(steps)} — {steps[i]}")
-
-
-def nav_buttons(can_back=True, can_next=True, next_label="Continuar"):
-    c1, _, c3 = st.columns([1, 2, 1])
+def nav_buttons(can_back=True, can_next=True, next_label="Siguiente ➜", back_label="⟵ Atrás"):
+    c1, c2, c3 = st.columns([1, 1, 2])
     with c1:
-        if can_back and st.button("⬅️ Atrás", use_container_width=True):
-            st.session_state.step = max(0, st.session_state.step - 1)
+        if can_back and st.button(back_label):
+            st.session_state.step = max(1, st.session_state.step - 1)
             st.rerun()
     with c3:
-        if can_next and st.button(next_label, use_container_width=True):
-            st.session_state.step = min(9, st.session_state.step + 1)
+        st.markdown('<div class="hm-btn-primary">', unsafe_allow_html=True)
+        if can_next and st.button(next_label):
+            st.session_state.step = min(TOTAL_STEPS, st.session_state.step + 1)
             st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
 
 
-def render_map(geojson_obj, selected_names):
-    m = folium.Map(location=[40.4168, -3.7038], zoom_start=11, control_scale=True)
-    selected = set(selected_names or [])
-
-    def style_fn(feature):
-        name = (feature.get("properties") or {}).get("name")
-        is_sel = name in selected
-        return {
-            "fillColor": HM_PRIMARY_DARK if is_sel else HM_PRIMARY,
-            "color": HM_PRIMARY_DARK,
-            "weight": 2 if is_sel else 1,
-            "fillOpacity": 0.35 if is_sel else 0.18,
-        }
-
-    def highlight_fn(_):
-        return {"weight": 3, "fillOpacity": 0.45}
-
-    folium.GeoJson(
-        geojson_obj,
-        name="Barrios",
-        style_function=style_fn,
-        highlight_function=highlight_fn,
-        tooltip=folium.GeoJsonTooltip(fields=["name"], aliases=["Barrio:"]),
-    ).add_to(m)
-
-    return st_folium(m, height=520, width=None)
+# ----------------------------
+# Form data (stored in session)
+# ----------------------------
+if "form" not in st.session_state:
+    st.session_state.form = {
+        "nombre": "",
+        "telefono": "",
+        "edad": 0,
+        "genero": "mujer",
+        "pref_genero": "mixto",
+        "idioma": "Spanish",
+        "budget": 0,
+        "inicio": date.today(),
+        "fin": date.today(),
+        "max_compartir_con": 2,
+        "banos_min": 1,
+        "notas": "",
+    }
 
 
-def main():
-    inject_branding()
-    init_state()
+# ----------------------------
+# Step 1 — Perfil
+# ----------------------------
+if st.session_state.step == 1:
+    st.markdown('<div class="hm-card">', unsafe_allow_html=True)
+    st.markdown('<span class="hm-step">Paso 1/4 — Perfil</span>', unsafe_allow_html=True)
+    st.write("")
 
-    admin = is_admin()
-    header()
-    stepper()
-
-    st.markdown('<div class="hm-shell"><div class="hm-card">', unsafe_allow_html=True)
-
-    try:
-        nindex = load_neighborhood_index()
-        gj = geojson_for_folium()
-    except Exception as e:
-        nindex = []
-        gj = None
-        st.error("No pude cargar el mapa de barrios automáticamente.")
-        st.code(str(e))
-
-    step = st.session_state.step
-
-    if step == 0:
-        st.subheader("Primero, lo básico 🙂")
-        st.session_state.nombre = st.text_input("Nombre y apellido", value=st.session_state.nombre)
-        st.session_state.telefono_raw = st.text_input("WhatsApp (con lada)", value=st.session_state.telefono_raw, placeholder="+34 6XXXXXXXX")
-        st.caption("Usamos tu WhatsApp para coordinar opciones y visitas.")
-        st.session_state.edad = st.number_input("Edad", min_value=16, max_value=99, value=int(st.session_state.edad))
-        nav_buttons(can_back=False)
-
-    elif step == 1:
-        st.subheader("Sobre ti")
-        st.session_state.genero = st.selectbox("Género", ["", "Hombre", "Mujer", "Otro", "Prefiero no decir"])
-        st.session_state.pref_genero = st.selectbox("¿Con quién quieres vivir?", ["", "Solo hombres", "Solo mujeres", "Mixto", "Me da igual"])
-        nav_buttons()
-
-    elif step == 2:
-        st.subheader("Idioma")
-        st.session_state.idioma = st.radio("¿En qué idioma prefieres que te hablemos?", ["Español", "English"], horizontal=True)
-        nav_buttons()
-
-    elif step == 3:
-        st.subheader("¿En qué barrios te gustaría vivir?")
-        st.caption("Haz click en el mapa: puedes seleccionar varios y se quedarán marcados ✅")
-
-        if gj is None or not nindex:
-            st.warning("Mapa no disponible. Intenta refrescar.")
+    c1, c2 = st.columns(2)
+    with c1:
+        st.session_state.form["nombre"] = st.text_input(
+            "Nombre y apellido *",
+            value=st.session_state.form["nombre"],
+            placeholder="Ej. Sofía García",
+        )
+        st.session_state.form["telefono"] = st.text_input(
+            "WhatsApp (con lada) *",
+            value=st.session_state.form["telefono"],
+            placeholder="+34 6XXXXXXXX",
+            help="Pon tu número con código de país. Ej: +34 6XXXXXXXX",
+        )
+        e164, country = safe_parse_phone(st.session_state.form["telefono"])
+        if e164:
+            st.success(f"Detectado: {e164} (Región: {country})")
         else:
-            out = render_map(gj, st.session_state.zonas_selected)
+            st.info("Tip: usa formato +34..., +52..., etc. para detectar país automáticamente.")
 
-            if out and out.get("last_clicked"):
-                lat = out["last_clicked"]["lat"]
-                lon = out["last_clicked"]["lng"]
-                barrio = barrio_from_click(lat, lon, nindex)
-                if barrio:
-                    if barrio in st.session_state.zonas_selected:
-                        st.session_state.zonas_selected.remove(barrio)
-                    else:
-                        st.session_state.zonas_selected.append(barrio)
-                    st.rerun()
+    with c2:
+        st.session_state.form["edad"] = st.number_input(
+            "Edad *",
+            min_value=16,
+            max_value=99,
+            value=int(st.session_state.form.get("edad") or 25),
+            step=1,
+        )
+        st.session_state.form["genero"] = st.selectbox(
+            "Género *",
+            options=["mujer", "hombre", "otro"],
+            index=["mujer", "hombre", "otro"].index(st.session_state.form.get("genero", "mujer")),
+        )
+        st.session_state.form["pref_genero"] = st.selectbox(
+            "¿Con quién te gustaría vivir? *",
+            options=["solo_mujeres", "solo_hombres", "mixto"],
+            index=["solo_mujeres", "solo_hombres", "mixto"].index(st.session_state.form.get("pref_genero", "mixto")),
+            help="Preferencia de roommates",
+        )
+        st.session_state.form["idioma"] = st.selectbox(
+            "Idioma preferido *",
+            options=["Spanish", "English", "French", "Italian", "German", "Portuguese"],
+            index=["Spanish", "English", "French", "Italian", "German", "Portuguese"].index(st.session_state.form.get("idioma", "Spanish")),
+        )
 
-            if st.session_state.zonas_selected:
-                st.markdown("**Seleccionados:**")
-                pills = "".join([f"<span class='hm-pill'>{z}</span>" for z in st.session_state.zonas_selected])
-                st.markdown(pills, unsafe_allow_html=True)
-            else:
-                st.info("Selecciona uno o varios barrios en el mapa.")
+    st.markdown("</div>", unsafe_allow_html=True)
+    st.write("")
+    nav_buttons(can_back=False, can_next=True)
 
-            if st.button("Limpiar selección"):
-                st.session_state.zonas_selected = []
-                st.rerun()
 
-        nav_buttons()
+# ----------------------------
+# Step 2 — Presupuesto + Fechas + Habitaciones
+# ----------------------------
+if st.session_state.step == 2:
+    st.markdown('<div class="hm-card">', unsafe_allow_html=True)
+    st.markdown('<span class="hm-step">Paso 2/4 — Presupuesto & Fechas</span>', unsafe_allow_html=True)
+    st.write("")
 
-    elif step == 4:
-        st.subheader("Presupuesto mensual 💸")
-        st.session_state.budget = st.number_input("Budget (€)", min_value=200, max_value=20000, value=int(st.session_state.budget), step=50)
-        nav_buttons()
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.session_state.form["budget"] = st.number_input(
+            "Budget mensual (€) *",
+            min_value=200,
+            max_value=15000,
+            value=int(st.session_state.form.get("budget") or 900),
+            step=50,
+        )
+    with c2:
+        st.session_state.form["inicio"] = st.date_input(
+            "Fecha inicio *",
+            value=st.session_state.form.get("inicio") or date.today(),
+        )
+    with c3:
+        st.session_state.form["fin"] = st.date_input(
+            "Fecha fin (si aplica) *",
+            value=st.session_state.form.get("fin") or date.today(),
+        )
 
-    elif step == 5:
-        st.subheader("Fechas")
-        st.session_state.inicio = st.date_input("Inicio", value=st.session_state.inicio)
-        st.session_state.fin = st.date_input("Fin", value=st.session_state.fin)
+    st.write("")
+    st.subheader("Preferencia de habitaciones (elige 10 o más si quieres)")
+    room_opts = [str(i) for i in range(1, 21)] + ["20+"]
+    st.session_state.rooms_pref = st.multiselect(
+        "¿Cuántas habitaciones te gustaría que tenga el piso? (multi-select)",
+        options=room_opts,
+        default=st.session_state.rooms_pref or ["2", "3"],
+        help="Puedes seleccionar múltiples opciones.",
+    )
 
-        if st.session_state.fin < st.session_state.inicio:
-            st.error("La fecha fin no puede ser antes que la fecha inicio.")
-            nav_buttons(can_next=False)
+    st.write("")
+    c4, c5 = st.columns(2)
+    with c4:
+        st.session_state.form["max_compartir_con"] = st.number_input(
+            "Máximo de personas para compartir (roommates) *",
+            min_value=0,
+            max_value=12,
+            value=int(st.session_state.form.get("max_compartir_con") or 2),
+            step=1,
+        )
+    with c5:
+        st.session_state.form["banos_min"] = st.number_input(
+            "Baños mínimos *",
+            min_value=1,
+            max_value=6,
+            value=int(st.session_state.form.get("banos_min") or 1),
+            step=1,
+        )
+
+    st.markdown("</div>", unsafe_allow_html=True)
+    st.write("")
+    nav_buttons(can_back=True, can_next=True)
+
+
+# ----------------------------
+# Step 3 — Zonas (map + list) multi select, sticky selection
+# ----------------------------
+if st.session_state.step == 3:
+    st.markdown('<div class="hm-card">', unsafe_allow_html=True)
+    st.markdown('<span class="hm-step">Paso 3/4 — Zonas en Madrid</span>', unsafe_allow_html=True)
+    st.write("Selecciona **una o varias** zonas. Puedes hacerlo por lista y/o con el mapa (clic para marcar/desmarcar).")
+    st.write("")
+
+    left, right = st.columns([0.52, 0.48], vertical_alignment="top")
+    with left:
+        st.session_state.selected_zonas = st.multiselect(
+            "Lista de zonas (multi-select) *",
+            options=sorted(set(ALL_ZONAS)),
+            default=st.session_state.selected_zonas,
+            help="Si falta alguna zona, puedes escribirla en Notas al final y la añadimos.",
+        )
+
+        st.write("**Seleccionadas:**")
+        if st.session_state.selected_zonas:
+            st.markdown(
+                "".join([f'<span class="hm-pill">{z}</span>' for z in st.session_state.selected_zonas]),
+                unsafe_allow_html=True,
+            )
         else:
-            nav_buttons()
+            st.info("Aún no has seleccionado zonas.")
 
-    elif step == 6:
-        st.subheader("Convivencia")
-        st.session_state.max_compartir_con = st.slider("Máximo de personas para compartir", 1, 6, int(st.session_state.max_compartir_con))
-        st.session_state.banos_min = st.radio("Baños mínimos", [1, 2, 3, 4], horizontal=True)
-        nav_buttons()
+    with right:
+        st.caption("🗺️ Mapa (clic en marcadores para seleccionar).")
+        st.session_state.selected_zonas = render_map_selector(st.session_state.selected_zonas)
 
-    elif step == 7:
-        st.subheader("¿Cuántas habitaciones quieres? 🛏️")
-        options = ["Studio", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10+"]
-        idx = options.index(st.session_state.habitaciones) if st.session_state.habitaciones in options else 0
-        st.session_state.habitaciones = st.selectbox("Habitaciones", options, index=idx)
-        nav_buttons()
+    st.markdown("</div>", unsafe_allow_html=True)
+    st.write("")
+    nav_buttons(can_back=True, can_next=True)
 
-    elif step == 8:
-        st.subheader("Notas ✍️")
-        st.session_state.notas = st.text_area("Notas / comentarios", value=st.session_state.notas, height=120)
-        nav_buttons(next_label="Finalizar")
 
-    elif step == 9:
-        st.subheader("¡Listo! ✅")
+# ----------------------------
+# Step 4 — Notas + Submit
+# ----------------------------
+if st.session_state.step == 4:
+    st.markdown('<div class="hm-card">', unsafe_allow_html=True)
+    st.markdown('<span class="hm-step">Paso 4/4 — Confirmación</span>', unsafe_allow_html=True)
+    st.write("")
 
-        phone_e164, country, region = normalize_phone(st.session_state.telefono_raw)
-        if not phone_e164:
-            st.error("Tu WhatsApp no parece válido. Usa formato +34 6XXXXXXXX.")
-            if st.button("⬅️ Volver"):
-                st.session_state.step = 0
-                st.rerun()
+    st.session_state.form["notas"] = st.text_area(
+        "Notas (opcional)",
+        value=st.session_state.form.get("notas", ""),
+        placeholder="Ej: Busco roomies limpios, no fiestas, cerca de metro, etc.",
+        height=110,
+    )
+
+    # Build payload
+    e164, region = safe_parse_phone(st.session_state.form.get("telefono", ""))
+    zonas_pipe = "|".join(st.session_state.selected_zonas) if st.session_state.selected_zonas else ""
+    rooms_pipe = "|".join(st.session_state.rooms_pref) if st.session_state.rooms_pref else ""
+
+    payload = {
+        "nombre": (st.session_state.form.get("nombre") or "").strip(),
+        "telefono": e164 or (st.session_state.form.get("telefono") or "").strip(),
+        "edad": int(st.session_state.form.get("edad") or 0),
+        "genero": st.session_state.form.get("genero"),
+        "pref_genero": st.session_state.form.get("pref_genero"),
+        "idioma": st.session_state.form.get("idioma"),
+        "zona": zonas_pipe,
+        "budget": int(st.session_state.form.get("budget") or 0),
+        "inicio": str(st.session_state.form.get("inicio")),
+        "fin": str(st.session_state.form.get("fin")),
+        "max_compartir_con": int(st.session_state.form.get("max_compartir_con") or 0),
+        "banos_min": int(st.session_state.form.get("banos_min") or 1),
+        "notas": st.session_state.form.get("notas", ""),
+        "rooms_pref": rooms_pipe,
+        "l_country": region or "",
+        "created_at": datetime.utcnow().isoformat(),
+    }
+
+    completeness = compute_completeness(payload)
+
+    st.subheader("Resumen")
+    c1, c2 = st.columns(2)
+    with c1:
+        st.write(f"**Nombre:** {payload['nombre'] or '—'}")
+        st.write(f"**WhatsApp:** {payload['telefono'] or '—'}")
+        st.write(f"**Edad:** {payload['edad'] or '—'}")
+        st.write(f"**Género:** {payload['genero'] or '—'}")
+        st.write(f"**Preferencia:** {payload['pref_genero'] or '—'}")
+        st.write(f"**Idioma:** {payload['idioma'] or '—'}")
+    with c2:
+        st.write(f"**Budget:** €{payload['budget'] or '—'}")
+        st.write(f"**Fechas:** {payload['inicio']} – {payload['fin']}")
+        st.write(f"**Zonas:** {payload['zona'].replace('|', ', ') if payload['zona'] else '—'}")
+        st.write(f"**Rooms:** {payload['rooms_pref'].replace('|', ', ') if payload['rooms_pref'] else '—'}")
+        st.write(f"**Máx compartir con:** {payload['max_compartir_con']}")
+        st.write(f"**Baños mínimos:** {payload['banos_min']}")
+
+    st.write("")
+    st.info(f"Completitud: **{completeness}%**")
+
+    st.write("")
+    st.subheader("Generate WhatsApp introduction message")
+    st.text_area("Mensaje", value=whatsapp_intro(payload), height=90)
+
+    st.write("")
+    st.markdown('<div class="hm-btn-primary">', unsafe_allow_html=True)
+    submit = st.button("✅ Enviar encuesta", type="primary")
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    if submit:
+        # Validate essentials
+        errors = []
+        if not payload["nombre"]:
+            errors.append("Falta nombre.")
+        if not payload["telefono"]:
+            errors.append("Falta WhatsApp válido (usa +34..., +52..., etc.).")
+        if not payload["zona"]:
+            errors.append("Selecciona al menos una zona.")
+        if payload["budget"] <= 0:
+            errors.append("Budget inválido.")
+
+        if errors:
+            st.error("Corrige esto antes de enviar:\n- " + "\n- ".join(errors))
         else:
-            zona_str = "|".join(st.session_state.zonas_selected) if st.session_state.zonas_selected else "—"
-
-            lead = {
-                "dedupe_key": make_dedupe_key(phone_e164),
-                "telefono": phone_e164,
-                "telefono_raw": st.session_state.telefono_raw,
-                "telefono_country": country,
-                "telefono_region": region,
-
-                "nombre": st.session_state.nombre.strip(),
-                "edad": int(st.session_state.edad),
-                "genero": st.session_state.genero,
-                "pref_genero": st.session_state.pref_genero,
-                "idioma": st.session_state.idioma,
-                "zona": zona_str,
-                "budget": int(st.session_state.budget),
-                "inicio": st.session_state.inicio.isoformat(),
-                "fin": st.session_state.fin.isoformat(),
-                "max_compartir_con": int(st.session_state.max_compartir_con),
-                "banos_min": int(st.session_state.banos_min),
-                "habitaciones": st.session_state.habitaciones,
-                "notas": (st.session_state.notas or "").strip(),
-            }
-
-            score, breakdown = calc_score({
-                **lead,
-                "inicio": st.session_state.inicio,
-                "fin": st.session_state.fin,
-            })
-            lead["match_score"] = int(score)
-            lead["score_breakdown"] = breakdown
-
-            st.metric("Match Score", f"{score}/100")
-            st.write("**Detalle:**", breakdown)
-            st.text_area("Generate WhatsApp introduction message", value=whatsapp_message(lead), height=120)
-
             try:
-                supabase_upsert({
-                    **lead,
-                    "score_breakdown": json.dumps(breakdown, ensure_ascii=False),
-                })
-                st.success("¡Gracias! Tu respuesta fue enviada ✅")
+                supa = get_supabase()
+                table = st.secrets.get("SUPABASE_TABLE", "hausmate_leads")
+
+                # Insert
+                res = supa.table(table).insert(payload).execute()
+                st.session_state.submitted_ok = True
+                st.success("¡Listo! Guardamos tu respuesta ✅")
+                st.balloons()
+
             except Exception as e:
                 st.error("No pude guardar tu respuesta en este momento.")
-                st.code(str(e))
+                st.exception(e)
 
-            if admin:
-                st.markdown("---")
-                st.subheader("📦 Admin: Resultados (solo tú)")
-                try:
-                    df = supabase_fetch_all()
+    st.write("")
+    nav_buttons(can_back=True, can_next=False, next_label="")
 
-                    export_cols = [
-                        "nombre", "telefono", "edad", "genero", "pref_genero", "idioma", "zona",
-                        "budget", "inicio", "fin", "max_compartir_con", "banos_min", "habitaciones", "notas"
-                    ]
-                    df_export = df[export_cols].copy() if (not df.empty and all(c in df.columns for c in export_cols)) else df
+    st.markdown("</div>", unsafe_allow_html=True)
 
-                    st.download_button(
-                        "⬇️ Descargar Excel (leads)",
-                        data=export_xlsx(df_export),
-                        file_name="hausmate_match_leads.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        use_container_width=True,
-                    )
-
-                    with st.expander("Ver tabla (solo admin)"):
-                        st.dataframe(df_export, use_container_width=True)
-                except Exception as e:
-                    st.error("No pude leer resultados desde Supabase.")
-                    st.code(str(e))
-
-            if st.button("➕ Nuevo registro", use_container_width=True):
-                for k in ["step","nombre","telefono_raw","edad","genero","pref_genero","idioma","zonas_selected","budget","inicio","fin","max_compartir_con","banos_min","habitaciones","notas"]:
-                    if k in st.session_state:
-                        del st.session_state[k]
-                st.rerun()
-
-    st.markdown("</div></div>", unsafe_allow_html=True)
-    footer_close_shell()
-
-
-if __name__ == "__main__":
-    main()
+# Footer note
+st.caption("© HausMate Match — Tus respuestas se almacenan de forma privada. Resultados visibles solo para Admin.")
