@@ -86,14 +86,19 @@ texts = {
         "legal_opt3": "Acepto ser contactado por WhatsApp para la gestión del servicio.",
         "view_policy": "Leer Política de Privacidad completa",
         "policy_content": """
-        **POLÍTICA DE PRIVACIDAD Y CONSENTIMIENTO**
+        **POLÍTICA DE PRIVACIDAD Y CONSENTIMIENTO DE TRATAMIENTO**
         
-        1. **Responsable:** HausMate.
-        2. **Finalidad:** Los datos recogidos se utilizarán exclusivamente para gestionar su perfil de búsqueda de vivienda y facilitar el contacto con otros usuarios compatibles (Matching).
-        3. **Legitimación:** Al marcar las casillas, usted otorga su consentimiento expreso bajo el RGPD (UE).
-        4. **Cesión de datos:** Sus datos de contacto (Nombre y WhatsApp) y sus preferencias de vivienda serán compartidos UNICAMENTE con aquellos usuarios con los que se genere un 'match' positivo.
-        5. **Conservación:** Sus datos se mantendrán mientras el servicio esté activo o hasta que usted solicite su supresión.
-        6. **Derechos:** Puede ejercer sus derechos de acceso, rectificación o cancelación enviando un mensaje a nuestro contacto de soporte.
+        **Responsable del Tratamiento:** El responsable de los datos recogidos en esta encuesta es HausMate. Para cualquier consulta o ejercicio de derechos, puede dirigirse a nuestro Delegado de Protección de Datos a través del correo electrónico: info@haus-es.com.
+        
+        **Finalidad del Tratamiento:** Los datos de carácter personal recabados (nombre, preferencias de vivienda y datos de contacto) se utilizarán exclusivamente para gestionar su perfil de búsqueda, analizar la compatibilidad con otros usuarios y facilitar la conexión ("Matching") entre las partes interesadas.
+        
+        **Base Jurídica (Legitimación):** El tratamiento se basa en el consentimiento libre, específico, informado e inequívoco del usuario (Art. 6.1.a RGPD) manifestado mediante la marcación de las casillas de aceptación.
+        
+        **Cesión y Comunicación de Datos:** En cumplimiento del principio de minimización, sus datos de contacto (Nombre y WhatsApp) solo serán compartidos con aquellos usuarios con los que el sistema genere un "match" positivo y aceptado. Fuera de este supuesto, no se cederán datos a terceros ni se realizarán transferencias internacionales, salvo requerimiento judicial o administrativo.
+        
+        **Plazo de Conservación:** Los datos se conservarán mientras se mantenga la relación para la prestación del servicio de matching o hasta que el usuario revoque su consentimiento. Una vez finalizada la finalidad, los datos serán bloqueados y posteriormente eliminados conforme a la normativa vigente.
+        
+        **Derechos del Usuario:** Usted tiene derecho a retirar su consentimiento en cualquier momento. Puede ejercer sus derechos de acceso, rectificación, supresión ("derecho al olvido"), limitación del tratamiento, portabilidad y oposición enviando un correo electrónico a info@haus-es.com. Asimismo, se le informa de su derecho a presentar una reclamación ante la Agencia Española de Protección de Datos (AEPD) si considera vulnerados sus derechos.
         """
     },
     "English": {
@@ -114,14 +119,19 @@ texts = {
         "legal_opt3": "I agree to be contacted via WhatsApp for service management.",
         "view_policy": "Read full Privacy Policy",
         "policy_content": """
-        **PRIVACY POLICY AND CONSENT**
+        **PRIVACY POLICY AND TREATMENT CONSENT**
         
-        1. **Controller:** HausMate.
-        2. **Purpose:** The collected data will be used exclusively to manage your housing search profile and facilitate contact with compatible users (Matching).
-        3. **Legitimation:** By checking the boxes, you grant express consent under the GDPR (EU).
-        4. **Data Sharing:** Your contact details (Name and WhatsApp) and housing preferences will ONLY be shared with users where a positive 'match' is generated.
-        5. **Retention:** Your data will be kept while the service is active or until you request its deletion.
-        6. **Rights:** You can exercise your rights of access, rectification, or cancellation by sending a message to our support contact.
+        **Data Controller:** The controller for the data collected in this survey is HausMate. For any queries or to exercise your rights, you can contact our Data Protection Officer via email: info@haus-es.com.
+        
+        **Purpose of Treatment:** The personal data collected (name, housing preferences, and contact details) will be used exclusively to manage your search profile, analyze compatibility with other users, and facilitate the connection ("Matching") between interested parties.
+        
+        **Legal Basis (Legitimation):** The treatment is based on the free, specific, informed, and unambiguous consent of the user (Art. 6.1.a GDPR) expressed by checking the acceptance boxes.
+        
+        **Data Transfer and Communication:** In compliance with the principle of minimization, your contact details (Name and WhatsApp) will only be shared with those users where the system generates a positive and accepted "match". Otherwise, no data will be transferred to third parties or international transfers will be made, except for judicial or administrative requirements.
+        
+        **Retention Period:** Data will be kept as long as the relationship for the provision of the matching service is maintained or until the user revokes their consent. Once the purpose has ended, the data will be blocked and subsequently deleted in accordance with current regulations.
+        
+        **User Rights:** You have the right to withdraw your consent at any time. You can exercise your rights of access, rectification, deletion ("right to be forgotten"), limitation of treatment, portability, and opposition by sending an email to info@haus-es.com. You are also informed of your right to file a claim with the Spanish Data Protection Agency (AEPD) if you consider your rights to have been violated.
         """
     }
 }
