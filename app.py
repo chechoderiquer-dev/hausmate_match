@@ -12,7 +12,7 @@ st.markdown("""
     <style>
     .stApp { background: linear-gradient(180deg, #7FBBC2 0%, #D9F1F3 60%, #ffffff 100%); }
     .haus-card { background: white; padding: 2rem; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-    .stButton>button { width: 100%; background-color: #0C2D33; color: white; font-weight: bold; border-radius: 10px; }
+    .stButton>button { width: 100%; background-color: #0C2D33 !important; color: white !important; font-weight: bold; border-radius: 10px; height: 3em; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -21,7 +21,6 @@ DISTRITOS = ["Arganzuela", "Centro", "Chamberí", "Retiro", "Salamanca", "Tetuá
 # --- FUNCIÓN DE ENVÍO ---
 def save_to_supabase(data: Dict[str, Any]):
     try:
-        # Usamos la URL corregida de tu Project ID: xmexitrkqnrtibapevrk
         url = st.secrets["SUPABASE_URL"].strip().replace('"', '')
         key = st.secrets["SUPABASE_SERVICE_ROLE_KEY"].strip().replace('"', '')
         table = st.secrets["SUPABASE_TABLE"].strip().replace('"', '')
@@ -29,7 +28,7 @@ def save_to_supabase(data: Dict[str, Any]):
         from supabase import create_client
         supabase = create_client(url, key)
         
-        # Intentamos insertar
+        # Intentamos insertar los datos
         supabase.table(table).insert(data).execute()
         return True, ""
     except Exception as e:
@@ -49,9 +48,15 @@ with st.container():
             presupuesto = st.number_input("Presupuesto (€)", 0, 5000, 800)
             preferencia = st.selectbox("Preferencia", ["Mixto", "Hombres", "Mujeres"])
         
-        barrios_sel = st.multiselect("📍 Distritos", options=DISTRITOS)
-        notas = st.text_area("Notas")
+        # --- ATENCIÓN AQUÍ ---
+        # Si el error persiste, es probable que en Supabase la columna se llame distinto.
+        # Cámbialo aquí abajo si es necesario.
+        distritos_seleccionados = st.multiselect("📍 Distritos de interés", options=DISTRITOS)
         
+        m = folium.Map(location=[40.4168, -3.7038], zoom_start=11, tiles="cartodbpositron")
+        st_folium(m, height=200, use_container_width=True, key="mapa_final")
+        
+        notas = st.text_area("Notas")
         enviar = st.form_submit_button("ENVIAR MI PERFIL")
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -59,23 +64,23 @@ if enviar:
     if not nombre or not whatsapp:
         st.error("Rellena nombre y WhatsApp")
     else:
-        # IMPORTANTE: Los nombres de estas llaves deben ser IGUALES a tus columnas en Supabase
+        # MAPEO DE COLUMNAS: Asegúrate de que coincidan con Supabase
         payload = {
             "full_name": nombre,
             "whatsapp": whatsapp,
             "budget": presupuesto,
             "living_with": preferencia,
-            "barrios": barrios_sel, # Si en Supabase se llama 'distritos', cambia aquí "barrios" por "distritos"
+            "barrios": distritos_seleccionados, # <--- ESTA ES LA COLUMNA QUE DA ERROR
             "notes": notas,
             "created_at": dt.datetime.now().isoformat()
         }
         
-        with st.spinner("Guardando..."):
-            exito, error = save_to_supabase(payload)
+        with st.spinner("Enviando perfil..."):
+            exito, error_msg = save_to_supabase(payload)
             if exito:
                 st.balloons()
-                st.success("¡Enviado con éxito!")
+                st.success("¡Enviado con éxito! Ya puedes cerrar esta pestaña.")
             else:
-                st.error("Error de columnas")
-                st.info(f"Detalle técnico: {error}")
-                st.warning("Revisa que en Supabase la columna se llame 'barrios'. Si se llama distinto, cambia el nombre en el código.")
+                st.error("Error de columnas en la base de datos")
+                st.info(f"Detalle: {error_msg}")
+                st.warning("CONSEJO: Ve a Supabase y comprueba si la columna se llama 'barrios' o 'distritos'.")
