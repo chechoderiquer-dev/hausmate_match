@@ -55,7 +55,7 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # --- CONSTANTES LEGALES ---
-POLICY_VERSION = "v1.0-2024-05-24"
+POLICY_VERSION = "v1.1-2024-05-24" # Actualizada con el nuevo texto
 
 # --- SELECTOR DE IDIOMA ---
 col_l, col_r = st.columns([4, 1])
@@ -82,14 +82,19 @@ texts = {
         "legal_opt3": "Acepto ser contactado por WhatsApp para la gestión del servicio. *",
         "view_policy": "Leer Política de Privacidad completa",
         "policy_content": """
-        **POLÍTICA DE PRIVACIDAD Y CONSENTIMIENTO DE TRATAMIENTO**
-        
-        **Responsable del Tratamiento:** HausMate (info@haus-es.com).
-        **Finalidad:** Gestión de perfil y facilitar la conexión ("Matching").
-        **Base Jurídica:** Consentimiento del usuario (Art. 6.1.a RGPD).
-        **Cesión de Datos:** Nombre y WhatsApp compartidos solo con matches positivos.
-        **Plazo:** Mientras se preste el servicio o hasta revocación.
-        **Derechos:** Acceso, supresión y portabilidad vía info@haus-es.com.
+**POLÍTICA DE PRIVACIDAD Y CONSENTIMIENTO DE TRATAMIENTO**
+
+**Responsable del Tratamiento:** El responsable de los datos recogidos en esta encuesta es HausMate. Para cualquier consulta o ejercicio de derechos, puede dirigirse a nuestro Delegado de Protección de Datos a través del correo electrónico: info@haus-es.com.
+
+**Finalidad del Tratamiento:** Los datos de carácter personal recabados (nombre, preferencias de vivienda y datos de contacto) se utilizarán exclusivamente para gestionar su perfil de búsqueda, analizar la compatibilidad con otros usuarios y facilitar la conexión ("Matching") entre las partes interesadas.
+
+**Base Jurídica (Legitimación):** El tratamiento se basa en el consentimiento libre, específico, informado e inequívoco del usuario (Art. 6.1.a RGPD) manifestado mediante la marcación de las casillas de aceptación.
+
+**Cesión y Comunicación de Datos:** En cumplimiento del principio de minimización, sus datos de contacto (Nombre y WhatsApp) solo serán compartidos con aquellos usuarios con los que el sistema genere un "match" positivo y aceptado. Fuera de este supuesto, no se cederán datos a terceros ni se realizarán transferencias internacionales, salvo requerimiento judicial o administrativo.
+
+**Plazo de Conservación:** Los datos se conservarán mientras se mantenga la relación para la prestación del servicio de matching o hasta que el usuario revoque su consentimiento. Una vez finalizada la finalidad, los datos serán bloqueados y posteriormente eliminados conforme a la normativa vigente.
+
+**Derechos del Usuario:** Usted tiene derecho a retirar su consentimiento en cualquier momento. Puede ejercer sus derechos de acceso, rectificación, supresión ("derecho al olvido"), limitación del tratamiento, portabilidad y oposición enviando un correo electrónico a info@haus-es.com. Asimismo, se le informa de su derecho a presentar una reclamación ante la Agencia Española de Protección de Datos (AEPD) si considera vulnerados sus derechos.
         """
     },
     "English": {
@@ -109,7 +114,7 @@ texts = {
         "legal_opt2": "I authorize sharing my contact/profile with matches. *",
         "legal_opt3": "I agree to be contacted via WhatsApp for service management. *",
         "view_policy": "Read full Privacy Policy",
-        "policy_content": "Full policy content as per Spanish version but in English context..."
+        "policy_content": "Please refer to the Spanish version for the official legal text. By accepting, you consent to the processing of your data as described in the GDPR compliance section."
     }
 }
 t = texts[lang]
@@ -191,7 +196,7 @@ if enviar:
         dedupe_key = hashlib.md5(f"{clean_wa}_{now_utc.date()}".encode()).hexdigest()
 
         # CONSOLIDACIÓN LEGAL EN EL CAMPO 'NOTAS'
-        # Esto evita el error PGRST204 al no enviar columnas que no existen en la DB
+        # Esto guarda un log de qué versión de política aceptó y cuándo
         extended_notes = (
             f"--- REGISTRO LEGAL ---\n"
             f"Política: {POLICY_VERSION}\n"
@@ -206,7 +211,7 @@ if enviar:
             f"Notas usuario: {notes_content}"
         )
 
-        # Usamos solo las columnas que confirmamos en tu captura de pantalla
+        # Mapeo de columnas confirmadas en Supabase
         payload = {
             "nombre": fn,
             "telefono": wa,
@@ -218,7 +223,7 @@ if enviar:
             "zona": ", ".join(barrios_sel) if barrios_sel else "Sin especificar",
             "inicio": m_in.isoformat(),
             "fin": m_out.isoformat(),
-            "notas": extended_notes, # Guardamos aquí todo para que no falle
+            "notas": extended_notes,
             "created_at": now_utc.isoformat()
         }
         
