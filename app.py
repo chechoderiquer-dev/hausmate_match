@@ -19,7 +19,7 @@ st.markdown("""
     
     /* 2. Ajustes de contenedor */
     .block-container { 
-        padding-top: 2rem !important; 
+        padding-top: 1rem !important; 
         max-width: 700px !important; 
     }
     
@@ -29,7 +29,7 @@ st.markdown("""
         padding: 2.5rem; 
         border-radius: 20px; 
         box-shadow: 0 10px 25px rgba(0,0,0,0.1); 
-        margin-top: -20px;
+        margin-top: -10px;
         color: #0C2D33;
     }
     
@@ -47,6 +47,13 @@ st.markdown("""
     div.stButton > button:first-child:hover {
         background-color: #164a54 !important;
         box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+
+    /* Estilo para la imagen del logo */
+    .logo-container {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 10px;
     }
 
     /* Ocultar elementos innecesarios */
@@ -119,10 +126,15 @@ texts = {
 }
 t = texts[lang]
 
-# --- CABECERA ---
+# --- CABECERA CON LOGO ---
 c_l, c_c, c_r = st.columns([1, 2, 1])
 with c_c:
-    st.markdown(f"<h1 style='text-align: center; color: #0C2D33; margin-bottom: 20px;'>HAUSMATE</h1>", unsafe_allow_html=True)
+    # Mostramos el logo si existe la URL en secrets, si no, el texto
+    try:
+        logo_url = st.secrets.get("LOGO_URL", "https://raw.githubusercontent.com/Tr0mAn/HausMate/main/logo.png")
+        st.image(logo_url, use_container_width=True)
+    except:
+        st.markdown(f"<h1 style='text-align: center; color: #0C2D33; margin-bottom: 20px;'>HAUSMATE</h1>", unsafe_allow_html=True)
 
 # --- FUNCIÓN DB ---
 def save_to_supabase(data: Dict[str, Any]):
@@ -206,7 +218,7 @@ if enviar:
             f"Comentarios: {notes_content}"
         )
 
-        # MAPEO DE COLUMNAS (Asegúrate de que 'edad' y 'genero' existan en Supabase tal cual)
+        # MAPEO DE COLUMNAS (Sincronizado con Supabase)
         payload = {
             "nombre": fn,
             "telefono": wa,
@@ -214,9 +226,9 @@ if enviar:
             "dedupe_key": dedupe_key,
             "budget": int(bg),
             "habitaciones": rm,
-            "pref_genero": lw,    # Columna existente
-            "edad": int(age_val), # Nueva columna detectada en tu captura
-            "genero": lw,         # Nueva columna detectada en tu captura
+            "pref_genero": lw,    
+            "edad": int(age_val), 
+            "genero": lw,         
             "zona": ", ".join(barrios_sel) if barrios_sel else "Sin especificar",
             "inicio": m_in.isoformat(),
             "fin": m_out.isoformat(),
@@ -233,5 +245,4 @@ if enviar:
                 if "duplicate key" in error_msg.lower():
                     st.warning("⚠️ Ya recibimos tu solicitud hoy.")
                 else:
-                    # Si el error es por las columnas nuevas, mostramos el mensaje detallado
                     st.error(f"Error de base de datos: {error_msg}")
