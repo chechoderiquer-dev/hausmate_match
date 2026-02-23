@@ -167,7 +167,6 @@ with st.form("main_form", border=False):
         pref_gender = st.selectbox(t["lw"], ["Mixto", "Solo Mujeres", "Solo Hombres"])
         country = st.text_input(t["country"], "España" if lang == "Español" else "Spain")
 
-    # Guardamos el idioma seleccionado
     idioma_val = st.selectbox(t["idioma_form"], ["Spanish", "English", "French", "German", "Other"])
 
     st.write(t["zonas"])
@@ -180,7 +179,6 @@ with st.form("main_form", border=False):
     with c4:
         m_out = st.date_input(t["move_out"], dt.date.today() + dt.timedelta(days=180))
         
-    # Guardamos lo que el usuario escribe sobre sí mismo
     notes_content = st.text_area(t["notes"], placeholder="..." )
     
     # Mapa decorativo
@@ -210,18 +208,17 @@ if enviar:
         clean_wa = "".join(filter(str.isdigit, wa))
         dedupe_key = hashlib.md5(f"{clean_wa}_{now_utc.date()}".encode()).hexdigest()
 
-        # Registro legal detallado que seguirá guardándose en notas por seguridad
+        # Registro legal en el campo 'notas' (que existe en minúsculas en tu esquema)
         extended_notes = (
-            f"--- CONSENTIMIENTO LEGAL ---\n"
+            f"--- LOG LEGAL ---\n"
             f"Política: {POLICY_VERSION}\n"
             f"Timestamp: {now_utc.isoformat()}\n"
             f"País de Origen: {country}\n"
-            f"Aceptó Privacidad: Sí\n"
-            f"Aceptó Compartir Perfil: Sí\n"
-            f"Aceptó Contacto WhatsApp: Sí"
+            f"Consentimientos: Privacidad[OK], Perfil[OK], WhatsApp[OK]"
         )
 
-        # MAPEO DE COLUMNAS ACTUALIZADO PARA IDIOMA Y PERFIL
+        # MAPEO DE COLUMNAS AJUSTADO AL ESQUEMA SQL
+        # Importante: "Perfil" va con P mayúscula para coincidir con tu base de datos
         payload = {
             "nombre": fn,
             "telefono": wa,
@@ -235,9 +232,9 @@ if enviar:
             "zona": ", ".join(barrios_sel) if barrios_sel else "Sin especificar",
             "inicio": m_in.isoformat(),
             "fin": m_out.isoformat(),
-            "idioma": idioma_val,       # Mapeado a la columna 'idioma'
-            "perfil": notes_content,     # Mapeado a la columna 'perfil'
-            "notas": extended_notes,
+            "idioma": idioma_val,       
+            "Perfil": notes_content,    # Corregido a "Perfil" (con P mayúscula)
+            "notas": extended_notes,    # 'notas' existe en minúsculas en tu esquema
             "created_at": now_utc.isoformat()
         }
         
