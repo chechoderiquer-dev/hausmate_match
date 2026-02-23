@@ -5,10 +5,8 @@ from typing import List, Dict, Any
 
 import streamlit as st
 import pandas as pd
-import requests
 
 import folium
-from folium.features import GeoJson
 from streamlit_folium import st_folium
 
 # =========================
@@ -29,12 +27,8 @@ def brand_css():
           .stApp {{
             background: linear-gradient(180deg, {BRAND_BG} 0%, {BRAND_BG_2} 60%, #ffffff 100%);
           }}
-          .block-container {{
-            padding-top: 2rem;
-          }}
-          h1, h2, h3, h4, h5, h6, p, label, div {{
-            color: {BRAND_DARK} !important;
-          }}
+          .block-container {{ padding-top: 2rem; }}
+          h1, h2, h3, h4, h5, h6, p, label, div {{ color: {BRAND_DARK} !important; }}
           .haus-card {{
             background: rgba(255,255,255,0.88);
             border: 1px solid rgba(12,45,51,0.12);
@@ -68,26 +62,36 @@ def render_header():
         st.markdown("<p style='margin:0; opacity:0.8;'>Encuentra tu match ideal en Madrid</p>", unsafe_allow_html=True)
 
 # =========================
+# DATA: DISTRITOS DE MADRID (Hardcoded para evitar 404)
+# =========================
+DISTRITOS_MADRID = [
+    "Arganzuela", "Barajas", "Carabanchel", "Centro", "Chamartín", 
+    "Chamberí", "Ciudad Lineal", "Fuencarral-El Pardo", "Hortaleza", 
+    "Latina", "Moncloa-Aravaca", "Moratalaz", "Puente De Vallecas", 
+    "Retiro", "Salamanca", "San Blas-Canillejas", "Tetuán", 
+    "Usera", "Vicálvaro", "Villa De Vallecas", "Villaverde"
+]
+
+# Coordenadas aproximadas para centrar el mapa
+MADRID_COORDS = [40.4168, -3.7038]
+
+# =========================
 # SECRETS & SUPABASE
 # =========================
 def get_secret(name: str, default: str = "") -> str:
     try:
-        if name in st.secrets:
-            return str(st.secrets[name])
-    except:
-        pass
+        if name in st.secrets: return str(st.secrets[name])
+    except: pass
     return os.getenv(name, default)
 
 def get_supabase_client():
     url = get_secret("SUPABASE_URL").strip()
     key = get_secret("SUPABASE_SERVICE_ROLE_KEY").strip()
-    if not url or not key:
-        return None, "Faltan credenciales de Supabase."
+    if not url or not key: return None, "Faltan credenciales."
     try:
         from supabase import create_client
         return create_client(url, key), ""
-    except Exception as e:
-        return None, f"Error al conectar: {e}"
+    except Exception as e: return None, str(e)
 
 def save_to_supabase(payload: Dict[str, Any]) -> (bool, str):
     table = get_secret("SUPABASE_TABLE", "hausmate_leads").strip()
@@ -96,32 +100,7 @@ def save_to_supabase(payload: Dict[str, Any]) -> (bool, str):
     try:
         client.table(table).insert(payload).execute()
         return True, ""
-    except Exception as e:
-        return False, str(e)
-
-# =========================
-# MAP LOGIC (URL OFICIAL MADRID)
-# =========================
-# Fuente oficial: Portal de Datos Abiertos del Ayuntamiento de Madrid (Distritos)
-BARRIOS_GEOJSON_URL = "https://geoportal.madrid.es/fsdesc/DISTRITOS.json"
-
-@st.cache_data(show_spinner=False)
-def load_barrios_geojson():
-    # El servidor oficial requiere un User-Agent para evitar bloqueos
-    headers = {'User-Agent': 'Mozilla/5.0'}
-    r = requests.get(BARRIOS_GEOJSON_URL, headers=headers, timeout=30)
-    r.raise_for_status()
-    return r.json()
-
-def extract_barrios_list(geojson):
-    names = []
-    for f in geojson.get("features", []):
-        props = f.get("properties", {})
-        # En el GeoJSON oficial de Madrid, la llave suele ser 'NOMBRE'
-        name = props.get("NOMBRE") or props.get("name") or props.get("NAME")
-        if name:
-            names.append(str(name).strip().title())
-    return sorted(list(set(names))) if names else ["Madrid Centro"]
+    except Exception as e: return False, str(e)
 
 # =========================
 # APP PRINCIPAL
@@ -130,15 +109,6 @@ st.set_page_config(page_title=APP_NAME, page_icon="🏠", layout="centered")
 brand_css()
 render_header()
 
-# Carga de datos del mapa con manejo de error visual
-try:
-    geojson_data = load_barrios_geojson()
-    barrios_options = extract_barrios_list(geojson_data)
-except Exception as e:
-    st.error(f"No se pudo cargar el mapa desde la fuente oficial. Por favor, intenta de nuevo más tarde.")
-    geojson_data, barrios_options = None, []
-
-# FORMULARIO
 with st.container():
     st.markdown("<div class='haus-card'>", unsafe_allow_html=True)
     st.subheader("📝 Tu perfil de búsqueda")
@@ -161,25 +131,18 @@ with st.container():
         st.markdown("---")
         st.markdown("### 📍 ¿Dónde quieres vivir?")
         
-        # El multiselect ahora tendrá las opciones si el GeoJSON cargó
-        selected = st.multiselect(
-            "Busca y selecciona distritos/barrios", 
-            options=barrios_options,
-            help="Si no aparece la lista, es un problema de conexión con el mapa."
+        # Selección de distritos (ahora siempre disponible)
+        selected_distritos = st.multiselect(
+            "Busca y selecciona distritos de Madrid", 
+            options=DISTRITOS_MADRID,
+            default=[]
         )
         
-        if geojson_data:
-            m = folium.Map(location=[40.4168, -3.7038], zoom_start=11, tiles="cartodbpositron")
-            folium.GeoJson(
-                geojson_data,
-                style_function=lambda x: {
-                    'fillColor': BRAND_DARK if (str(x['properties'].get('NOMBRE', '')).title() in selected) else '#ffffff',
-                    'color': BRAND_DARK,
-                    'weight': 1,
-                    'fillOpacity': 0.5 if (str(x['properties'].get('NOMBRE', '')).title() in selected) else 0.1
-                }
-            ).add_to(m)
-            st_folium(m, height=300, use_container_width=True, key="madrid_map")
+        # Mapa de referencia
+        m = folium.Map(location=MADRID_COORDS, zoom_start=11, tiles="cartodbpositron")
+        # Añadimos un marcador simple en el centro de Madrid
+        folium.Marker(MADRID_COORDS, popup="Madrid Centro", icon=folium.Icon(color='cadetblue', icon='home')).add_to(m)
+        st_folium(m, height=300, use_container_width=True, key="madrid_map_static")
 
         st.markdown("---")
         col5, col6 = st.columns(2)
@@ -194,7 +157,7 @@ with st.container():
 
 if submitted:
     if not full_name or not whatsapp:
-        st.error("Rellena los campos obligatorios.")
+        st.error("Por favor, rellena los campos obligatorios.")
     else:
         payload = {
             "full_name": full_name,
@@ -203,7 +166,7 @@ if submitted:
             "budget": budget,
             "rooms": rooms,
             "living_with": living_with,
-            "barrios": selected,
+            "barrios": selected_distritos,
             "move_in": str(move_in),
             "move_out": str(move_out),
             "notes": notes,
@@ -212,6 +175,6 @@ if submitted:
         success, err = save_to_supabase(payload)
         if success:
             st.balloons()
-            st.success("¡Tu perfil ha sido enviado correctamente!")
+            st.success("¡Perfil enviado con éxito!")
         else:
-            st.error(f"Error al guardar: {err}")
+            st.error(f"Error al enviar: {err}")
