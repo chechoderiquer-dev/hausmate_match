@@ -128,7 +128,15 @@ with st.form("main_form", border=False):
         idioma_val = st.selectbox(t["idioma_form"], ["Spanish", "English", "French", "German", "Other"])
 
     st.write(t["zonas"])
-    distritos = ["Centro", "Chamberí", "Retiro", "Salamanca", "Tetuán", "Moncloa", "Arganzuela", "Otros"]
+    # Lista Completa de los 21 Distritos de Madrid
+    distritos = [
+        "Centro", "Arganzuela", "Retiro", "Salamanca", "Chamartín", 
+        "Tetuán", "Chamberí", "Fuencarral-El Pardo", "Moncloa-Aravaca", 
+        "Latina", "Carabanchel", "Usera", "Puente de Vallecas", 
+        "Moratalaz", "Ciudad Lineal", "Hortaleza", "Villaverde", 
+        "Villa de Vallecas", "Vicálvaro", "San Blas-Canillejas", "Barajas",
+        "Otros"
+    ]
     barrios_sel = st.multiselect(t["zonas_help"], options=distritos, label_visibility="collapsed")
     
     c3, c4 = st.columns(2)
@@ -153,7 +161,6 @@ if enviar:
         st.error(t["error"])
     else:
         # Generar una dedupe_key única basada en el teléfono para evitar duplicados
-        # (Opcional: podrías usar el timestamp si prefieres permitir múltiples registros por teléfono)
         clean_wa = "".join(filter(str.isdigit, wa))
         dedupe_key = hashlib.md5(f"{clean_wa}_{dt.datetime.now().date()}".encode()).hexdigest()
 
