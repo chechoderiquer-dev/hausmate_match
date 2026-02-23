@@ -25,6 +25,7 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 DISTRITOS = ["Arganzuela", "Centro", "Chamberí", "Retiro", "Salamanca", "Tetuán", "Otros"]
+IDIOMAS = ["Spanish", "English", "French", "German", "Italian", "Portuguese", "Other"]
 
 # --- FUNCIÓN DE ENVÍO ---
 def save_to_supabase(data: Dict[str, Any]):
@@ -56,11 +57,11 @@ with st.container():
             tel_input = st.text_input("Teléfono/WhatsApp *")
             edad_input = st.number_input("Edad", 18, 99, 25)
             genero_user = st.selectbox("Tu género", ["mujer", "hombre", "otro"])
+            idioma_input = st.selectbox("Idioma principal", options=IDIOMAS)
         
         with col2:
             budget_input = st.number_input("Presupuesto Máximo (€)", 0, 5000, 800)
             pref_gen = st.selectbox("Preferencia de convivencia", ["mixto", "solo_mujeres", "solo_hombres"])
-            # NUEVOS DATOS SOLICITADOS
             hab_max = st.selectbox("Máximo de habitaciones en la casa", ["1", "2", "3", "4", "5+"])
             banos_min = st.selectbox("Mínimo de baños", ["1", "2", "3+"])
         
@@ -73,9 +74,9 @@ with st.container():
         with c4:
             fecha_fin = st.date_input("Fecha salida aproximada", dt.date.today() + dt.timedelta(days=90))
             
-        notas_input = st.text_area("Notas adicionales (idiomas, hobbies, trabajo...)")
+        notas_input = st.text_area("Notas adicionales (hobbies, trabajo, etc.)")
         
-        # Mapa visual de Madrid
+        # Mapa visual
         m = folium.Map(location=[40.4168, -3.7038], zoom_start=11, tiles="cartodbpositron")
         st_folium(m, height=200, use_container_width=True, key="mapa_madrid")
         
@@ -86,7 +87,7 @@ if enviar:
     if not nombre_input or not tel_input:
         st.error("⚠️ El nombre y el teléfono son obligatorios.")
     else:
-        # Generar dedupe_key única para evitar errores de restricción SQL
+        # Generar dedupe_key única
         unique_str = f"{tel_input}_{dt.datetime.now().isoformat()}"
         d_key = hashlib.md5(unique_str.encode()).hexdigest()
 
@@ -98,7 +99,8 @@ if enviar:
             "edad": int(edad_input),
             "genero": genero_user,
             "pref_genero": pref_gen,
-            "zona": "|".join(zona_sel), # Usamos el separador que suele haber en tus datos
+            "idioma": idioma_input, # <--- Nueva columna agregada
+            "zona": "|".join(zona_sel),
             "budget": int(budget_input),
             "inicio": fecha_inicio.isoformat(),
             "fin": fecha_fin.isoformat(),
@@ -113,7 +115,7 @@ if enviar:
             exito, error_msg = save_to_supabase(payload)
             if exito:
                 st.balloons()
-                st.success("✅ ¡Perfecto! Tu perfil ha sido registrado con todos los detalles.")
+                st.success("✅ ¡Perfecto! Tu perfil se ha guardado con el idioma seleccionado.")
             else:
-                st.error("❌ Error al guardar en la base de datos.")
+                st.error("❌ Error al guardar.")
                 st.info(f"Detalle técnico: {error_msg}")
