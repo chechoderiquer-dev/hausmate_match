@@ -19,7 +19,7 @@ st.markdown("""
     
     /* 2. Ajustes de contenedor */
     .block-container { 
-        padding-top: 1rem !important; 
+        padding-top: 2rem !important; 
         max-width: 700px !important; 
     }
     
@@ -29,7 +29,7 @@ st.markdown("""
         padding: 2.5rem; 
         border-radius: 20px; 
         box-shadow: 0 10px 25px rgba(0,0,0,0.1); 
-        margin-top: -10px;
+        margin-top: 20px;
         color: #0C2D33;
     }
     
@@ -49,10 +49,12 @@ st.markdown("""
         box-shadow: 0 4px 12px rgba(0,0,0,0.2);
     }
 
-    /* Estilo para la imagen del logo */
-    .logo-container {
+    /* Contenedor del logo para asegurar centrado y visibilidad */
+    .logo-wrapper {
         display: flex;
         justify-content: center;
+        align-items: center;
+        width: 100%;
         margin-bottom: 10px;
     }
 
@@ -127,14 +129,10 @@ texts = {
 t = texts[lang]
 
 # --- CABECERA CON LOGO ---
-c_l, c_c, c_r = st.columns([1, 2, 1])
-with c_c:
-    # Mostramos el logo si existe la URL en secrets, si no, el texto
-    try:
-        logo_url = st.secrets.get("LOGO_URL", "https://raw.githubusercontent.com/Tr0mAn/HausMate/main/logo.png")
-        st.image(logo_url, use_container_width=True)
-    except:
-        st.markdown(f"<h1 style='text-align: center; color: #0C2D33; margin-bottom: 20px;'>HAUSMATE</h1>", unsafe_allow_html=True)
+st.markdown('<div class="logo-wrapper">', unsafe_allow_html=True)
+logo_url = st.secrets.get("LOGO_URL", "https://raw.githubusercontent.com/Tr0mAn/HausMate/main/logo.png")
+st.image(logo_url, width=280)
+st.markdown('</div>', unsafe_allow_html=True)
 
 # --- FUNCIÓN DB ---
 def save_to_supabase(data: Dict[str, Any]):
@@ -219,6 +217,7 @@ if enviar:
         )
 
         # MAPEO DE COLUMNAS (Sincronizado con Supabase)
+        # Nota: 'edad' y 'genero' deben estar creados en Supabase.
         payload = {
             "nombre": fn,
             "telefono": wa,
