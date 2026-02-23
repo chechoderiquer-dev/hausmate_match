@@ -13,17 +13,24 @@ st.markdown("""
     /* Fondo degradado */
     .stApp { background: linear-gradient(180deg, #7FBBC2 0%, #D9F1F3 60%, #ffffff 100%); }
     
-    /* Reducción de espacios (Padding/Margin) */
-    .block-container { padding-top: 1rem !important; }
-    .stImage { margin-bottom: -30px !important; } /* Sube el contenido debajo del logo */
+    /* Eliminar el espacio superior por defecto de Streamlit */
+    .block-container { padding-top: 0rem !important; }
     
-    /* Estilo de la tarjeta */
+    /* Contenedor del logo */
+    .logo-container { 
+        text-align: center; 
+        margin-bottom: -60px; /* Sube la tarjeta hacia el logo */
+        padding-top: 10px;
+    }
+    
+    /* Estilo de la tarjeta blanca */
     .haus-card { 
         background: white; 
         padding: 2rem; 
         border-radius: 20px; 
         box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-        margin-top: -20px; /* Sube la tarjeta hacia el logo */
+        position: relative;
+        z-index: 1;
     }
     
     .stButton>button { 
@@ -35,8 +42,8 @@ st.markdown("""
         height: 3.5em; 
     }
     
-    /* Selector de idioma más pequeño */
-    div[data-testid="stRadio"] > div { gap: 10px; }
+    /* Compactar el radio de idioma */
+    div[data-testid="stRadio"] > div { gap: 10px; justify-content: flex-end; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -72,14 +79,16 @@ texts = {
 }
 t = texts[lang]
 
-# --- LOGO CENTRADO ---
+# --- LOGO CENTRADO Y RESTAURADO ---
+st.markdown('<div class="logo-container">', unsafe_allow_html=True)
 col_l, col_c, col_r = st.columns([1, 2, 1])
 with col_c:
-    # Usando el nombre que analizamos: LOGO_HAUSMATE.png
+    # Usando el nombre oficial: LOGO_HAUSMATE.png
     if os.path.exists("LOGO_HAUSMATE.png"):
         st.image("LOGO_HAUSMATE.png", use_container_width=True)
     else:
-        st.markdown(f"<h1 style='text-align: center; color: #0C2D33;'>HAUSMATE</h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align: center; color: #0C2D33;'>HAUSMATE</h1>", unsafe_allow_html=True)
+st.markdown('</div>', unsafe_allow_html=True)
 
 # --- FUNCIÓN DB ---
 def save_to_supabase(data: Dict[str, Any]):
@@ -129,7 +138,7 @@ with st.container():
         enviar = st.form_submit_button(t["btn"])
     st.markdown('</div>', unsafe_allow_html=True)
 
-# --- LÓGICA DE ENVÍO ---
+# --- ENVÍO ---
 if enviar:
     if not fn or not wa:
         st.error(t["error"])
