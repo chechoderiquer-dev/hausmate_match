@@ -5,6 +5,7 @@ import streamlit as st
 import folium
 from streamlit_folium import st_folium
 
+# --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="HausMate Match", page_icon="🏠", layout="centered")
 
 # --- ESTILO PERSONALIZADO ---
@@ -15,51 +16,49 @@ st.markdown("""
         background: linear-gradient(180deg, #7FBBC2 0%, #D9F1F3 60%, #ffffff 100%); 
     }
     
-    /* 2. Eliminar el espacio superior y ajustar ancho */
+    /* 2. Ajustes de contenedor */
     .block-container { 
-        padding-top: 1rem !important; 
-        max-width: 800px !important; 
+        padding-top: 2rem !important; 
+        max-width: 700px !important; 
     }
     
-    /* 3. El truco del espacio: margen negativo para subir la tarjeta */
-    .logo-container { 
-        text-align: center;
-        margin-bottom: -70px; /* Sube la tarjeta blanca agresivamente */
-        position: relative;
-        z-index: 0;
-    }
-    
-    /* 4. Estilo de la tarjeta blanca */
+    /* 3. Estilo de la tarjeta blanca */
     .haus-card { 
         background: white; 
         padding: 2.5rem; 
         border-radius: 20px; 
         box-shadow: 0 10px 25px rgba(0,0,0,0.1); 
-        position: relative;
-        z-index: 1; /* Para que quede por encima del margen del logo */
+        margin-top: -20px;
+        color: #0C2D33;
     }
     
-    /* 5. Botón HausMate */
-    .stButton>button { 
-        width: 100%; 
-        background-color: #0C2D33 !important; 
-        color: white !important; 
-        font-weight: bold; 
-        border-radius: 12px; 
-        height: 3.5em; 
+    /* 4. Botón personalizado */
+    div.stButton > button:first-child {
+        width: 100%;
+        background-color: #0C2D33 !important;
+        color: white !important;
+        font-weight: bold;
+        border-radius: 12px;
+        height: 3.5em;
+        border: none;
+        transition: 0.3s;
+    }
+    div.stButton > button:first-child:hover {
+        background-color: #164a54 !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
     }
 
-    /* Limpiar headers de Streamlit */
-    header {visibility: hidden;}
+    /* Ocultar elementos innecesarios */
+    #MainMenu, footer, header {visibility: hidden;}
     </style>
     """, unsafe_allow_html=True)
 
 # --- SELECTOR DE IDIOMA ---
-col_empty, col_lang = st.columns([4, 1])
-with col_lang:
+col_l, col_r = st.columns([4, 1])
+with col_r:
     lang = st.radio("Lang", ["Español", "English"], horizontal=True, label_visibility="collapsed")
 
-# --- TRADUCCIONES ---
+# --- DICCIONARIO DE TRADUCCIONES ---
 texts = {
     "Español": {
         "title": "📝 Encuentra tu HausMate",
@@ -69,8 +68,8 @@ texts = {
         "idioma_form": "Idioma principal", "zonas": "📍 Zonas preferidas",
         "zonas_help": "Selecciona los distritos", "move_in": "¿Cuándo entras?",
         "move_out": "¿Hasta cuándo?", "notes": "Sobre ti (trabajo, hobbies...)",
-        "btn": "¡REGISTRARME Y BUSCAR MATCH!", "error": "⚠️ Nombre y WhatsApp requeridos.",
-        "success": "✅ ¡Datos guardados!", "loading": "Guardando..."
+        "btn": "¡REGISTRARME Y BUSCAR MATCH!", "error": "⚠️ Requerido: Nombre y WhatsApp.",
+        "success": "✅ ¡Datos guardados con éxito!", "loading": "Guardando datos..."
     },
     "English": {
         "title": "📝 Find your HausMate",
@@ -80,31 +79,29 @@ texts = {
         "idioma_form": "Main language", "zonas": "📍 Preferred areas",
         "zonas_help": "Select districts", "move_in": "Move-in date",
         "move_out": "Move-out date", "notes": "About you (work, hobbies...)",
-        "btn": "REGISTER & FIND MATCH!", "error": "⚠️ Name and WhatsApp are required.",
-        "success": "✅ Data saved.", "loading": "Saving..."
+        "btn": "REGISTER & FIND MATCH!", "error": "⚠️ Required: Name and WhatsApp.",
+        "success": "✅ Data saved successfully.", "loading": "Saving data..."
     }
 }
 t = texts[lang]
 
-# --- LOGO CENTRADO Y VISIBLE ---
-st.markdown('<div class="logo-container">', unsafe_allow_html=True)
+# --- LOGO / CABECERA ---
 c_l, c_c, c_r = st.columns([1, 2, 1])
 with c_c:
-    # Intenta encontrar el logo con los nombres analizados
-    logo_path = "LOGO_HAUSMATE.png"
+    logo_path = "logo_hausmate.png"
     if os.path.exists(logo_path):
         st.image(logo_path, use_container_width=True)
     else:
-        st.markdown(f"<h1 style='color: #0C2D33;'>HAUSMATE</h1>", unsafe_allow_html=True)
-st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown(f"<h1 style='text-align: center; color: #0C2D33; margin-bottom: 20px;'>HAUSMATE</h1>", unsafe_allow_html=True)
 
-# --- FUNCIÓN DB ---
+# --- FUNCIÓN DB (SUPABASE) ---
 def save_to_supabase(data: Dict[str, Any]):
     try:
+        from supabase import create_client
         url = st.secrets["SUPABASE_URL"].strip().replace('"', '')
         key = st.secrets["SUPABASE_SERVICE_ROLE_KEY"].strip().replace('"', '')
         table = st.secrets["SUPABASE_TABLE"].strip().replace('"', '')
-        from supabase import create_client
+        
         supabase = create_client(url, key)
         supabase.table(table).insert(data).execute()
         return True, ""
@@ -112,57 +109,68 @@ def save_to_supabase(data: Dict[str, Any]):
         return False, str(e)
 
 # --- FORMULARIO ---
-with st.container():
-    st.markdown('<div class="haus-card">', unsafe_allow_html=True)
-    with st.form("main_form"):
-        st.subheader(t["title"])
-        
-        c1, c2 = st.columns(2)
-        with c1:
-            fn = st.text_input(t["name"])
-            wa = st.text_input(t["wa"])
-            age = st.number_input(t["age"], 18, 99, 25)
-            lw = st.selectbox(t["lw"], ["mixto", "solo_mujeres", "solo_hombres"])
-        
-        with c2:
-            bg = st.number_input(t["budget"], 0, 5000, 1000)
-            rm = st.selectbox(t["rooms"], ["1", "2", "3", "4", "5+"])
-            country = st.text_input(t["country"], "España" if lang == "Español" else "Spain")
-            idioma_val = st.selectbox(t["idioma_form"], ["Spanish", "English", "French", "German", "Other"])
+st.markdown('<div class="haus-card">', unsafe_allow_html=True)
+with st.form("main_form", border=False):
+    st.markdown(f"<h3 style='text-align: center;'>{t['title']}</h3>", unsafe_allow_html=True)
+    
+    c1, c2 = st.columns(2)
+    with c1:
+        fn = st.text_input(t["name"], placeholder="John Doe")
+        wa = st.text_input(t["wa"], placeholder="+34 600 000 000")
+        age = st.number_input(t["age"], 18, 99, 25)
+        lw = st.selectbox(t["lw"], ["Mixto", "Solo Mujeres", "Solo Hombres"])
+    
+    with c2:
+        bg = st.number_input(t["budget"], 0, 5000, 800, step=50)
+        rm = st.selectbox(t["rooms"], ["1", "2", "3", "4", "5+"])
+        country = st.text_input(t["country"], "España" if lang == "Español" else "Spain")
+        idioma_val = st.selectbox(t["idioma_form"], ["Spanish", "English", "French", "German", "Other"])
 
-        st.write(t["zonas"])
-        distritos = ["Centro", "Chamberí", "Retiro", "Salamanca", "Tetuán", "Moncloa", "Arganzuela", "Otros"]
-        barrios_sel = st.multiselect(t["zonas_help"], options=distritos, label_visibility="collapsed")
+    st.write(t["zonas"])
+    distritos = ["Centro", "Chamberí", "Retiro", "Salamanca", "Tetuán", "Moncloa", "Arganzuela", "Otros"]
+    barrios_sel = st.multiselect(t["zonas_help"], options=distritos, label_visibility="collapsed")
+    
+    c3, c4 = st.columns(2)
+    with c3:
+        m_in = st.date_input(t["move_in"], dt.date.today())
+    with c4:
+        m_out = st.date_input(t["move_out"], dt.date.today() + dt.timedelta(days=180))
         
-        c3, c4 = st.columns(2)
-        with c3:
-            m_in = st.date_input(t["move_in"], dt.date.today())
-        with c4:
-            m_out = st.date_input(t["move_out"], dt.date.today() + dt.timedelta(days=180))
-            
-        notes = st.text_area(t["notes"])
-        
-        m = folium.Map(location=[40.4168, -3.7038], zoom_start=12, tiles="cartodbpositron")
-        st_folium(m, height=200, use_container_width=True, key="mapa_final")
-        
-        enviar = st.form_submit_button(t["btn"])
-    st.markdown('</div>', unsafe_allow_html=True)
+    notes = st.text_area(t["notes"], placeholder="..." )
+    
+    # Mapa decorativo de Madrid
+    m = folium.Map(location=[40.4168, -3.7038], zoom_start=12, tiles="cartodbpositron")
+    st_folium(m, height=180, use_container_width=True, key="madrid_map")
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    enviar = st.form_submit_button(t["btn"])
+st.markdown('</div>', unsafe_allow_html=True)
 
-# --- ENVÍO ---
+# --- LÓGICA DE ENVÍO ---
 if enviar:
     if not fn or not wa:
         st.error(t["error"])
     else:
         payload = {
-            "full_name": fn, "whatsapp": wa, "age": int(age), "budget": int(bg),
-            "rooms": rm, "living_with": lw, "barrios": barrios_sel, 
-            "move_in": m_in.isoformat(), "move_out": m_out.isoformat(),
-            "notes": f"UI: {lang}. {notes}", "country_guess": country,
+            "full_name": fn, 
+            "whatsapp": wa, 
+            "age": int(age), 
+            "budget": int(bg),
+            "rooms": rm, 
+            "living_with": lw, 
+            "barrios": barrios_sel, 
+            "move_in": m_in.isoformat(), 
+            "move_out": m_out.isoformat(),
+            "notes": f"UI_Lang: {lang}. {notes}", 
+            "country_guess": country,
+            "main_language": idioma_val,
             "created_at": dt.datetime.now(dt.timezone.utc).isoformat()
         }
+        
         with st.spinner(t["loading"]):
-            exito, error = save_to_supabase(payload)
+            exito, error_msg = save_to_supabase(payload)
             if exito:
-                st.balloons(); st.success(t["success"])
+                st.balloons()
+                st.success(t["success"])
             else:
-                st.error(f"Error: {error}")
+                st.error(f"Error: {error_msg}")
