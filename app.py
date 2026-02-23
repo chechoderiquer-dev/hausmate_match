@@ -1,7 +1,5 @@
 import os
-import io
 import json
-import zipfile
 import datetime as dt
 from typing import List, Dict, Any
 
@@ -13,22 +11,16 @@ import folium
 from folium.features import GeoJson, GeoJsonTooltip
 from streamlit_folium import st_folium
 
-# geopandas stack (ya lo tienes en requirements)
-import geopandas as gpd
-
 
 # =========================
 # BRAND / UI
 # =========================
 APP_NAME = "HausMate Match"
-LOGO_PATH_LOCAL = "logo.png"  # opcional (si lo subes al repo)
-LOGO_PATH_FALLBACK = None     # si no existe, igual corre
+LOGO_PATH_LOCAL = "logo.png"  # si subes el logo al repo con ese nombre, se verá
 
-# Colores aproximados del logo (fondo turquesa + blanco)
 BRAND_BG = "#7FBBC2"
 BRAND_BG_2 = "#D9F1F3"
 BRAND_DARK = "#0C2D33"
-BRAND_ACCENT = "#B06CFF"  # acento moradito como tu UI (puedes cambiar)
 WHITE = "#FFFFFF"
 
 
@@ -46,7 +38,7 @@ def brand_css():
             color: {BRAND_DARK};
           }}
           .haus-card {{
-            background: rgba(255,255,255,0.85);
+            background: rgba(255,255,255,0.88);
             border: 1px solid rgba(12,45,51,0.12);
             border-radius: 18px;
             padding: 16px 16px;
@@ -56,7 +48,7 @@ def brand_css():
             display:inline-block;
             padding: 6px 10px;
             border-radius: 999px;
-            background: rgba(255,255,255,0.7);
+            background: rgba(255,255,255,0.75);
             border: 1px solid rgba(12,45,51,0.12);
             font-weight: 600;
           }}
@@ -85,7 +77,6 @@ def brand_css():
 def render_header():
     col1, col2 = st.columns([1, 3], vertical_alignment="center")
     with col1:
-        # Intenta cargar logo local si existe
         if os.path.exists(LOGO_PATH_LOCAL):
             st.image(LOGO_PATH_LOCAL, use_container_width=True)
         else:
@@ -93,43 +84,40 @@ def render_header():
     with col2:
         st.markdown(f"<h2 style='margin-bottom:0'>{APP_NAME}</h2>", unsafe_allow_html=True)
         st.markdown(
-            "<div class='haus-badge'>Encuesta inteligente para encontrar tu match de piso / roomie</div>",
+            "<div class='haus-badge'>Encuesta inteligente para encontrar tu match</div>",
             unsafe_allow_html=True,
         )
 
 
 # =========================
-# SUPABASE
+# SECRETS HELPERS
 # =========================
 def get_secret(name: str, default: str = "") -> str:
-    # Streamlit Cloud secrets -> st.secrets
     try:
         if name in st.secrets:
             return str(st.secrets[name])
     except Exception:
         pass
-    # fallback env
     return os.getenv(name, default)
 
 
+# =========================
+# SUPABASE
+# =========================
 def get_supabase_client():
-    """
-    Usa service role key (server-side) para insertar sin exponer políticas.
-    """
     supabase_url = get_secret("SUPABASE_URL", "").strip()
     supabase_key = get_secret("SUPABASE_SERVICE_ROLE_KEY", "").strip()
 
     if not supabase_url or not supabase_key:
         return None, "Faltan SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY en Secrets."
 
-    # Validación simple para evitar el error DNS típico por URL mal copiada
     if "supabase.co" not in supabase_url:
         return None, f"SUPABASE_URL no parece válida: {supabase_url}"
 
     try:
-        from supabase import create_client  # pip install supabase
+        from supabase import create_client
     except Exception:
-        return None, "No está instalada la librería 'supabase'. Agrega 'supabase' a requirements.txt."
+        return None, "Falta instalar 'supabase'. Agrégalo en requirements.txt."
 
     try:
         client = create_client(supabase_url, supabase_key)
@@ -140,11 +128,9 @@ def get_supabase_client():
 
 def save_to_supabase(payload: Dict[str, Any]) -> (bool, str):
     table = get_secret("SUPABASE_TABLE", "hausmate_leads").strip()
-
     client, err = get_supabase_client()
     if client is None:
         return False, err
-
     try:
         client.table(table).insert(payload).execute()
         return True, ""
@@ -156,140 +142,99 @@ def admin_password_ok() -> bool:
     admin_pw = get_secret("ADMIN_PASSWORD", "").strip()
     if not admin_pw:
         return False
-    if st.session_state.get("admin_ok") is True:
-        return True
-    return False
+    return st.session_state.get("admin_ok") is True
 
 
 # =========================
-# MADRID BARRIOS MAP (auto-download official SHP)
+# BARRIOS GEOJSON (NO GEOPANDAS)
 # =========================
-BARRIOS_SHP_ZIP_URL = "https://geoportal.madrid.es/fsdescargas/IDEAM_WBGEOPORTAL/LIMITES_ADMINISTRATIVOS/Barrios/Barrios.zip"
+# GeoJSON público con barrios/distritos (Madrid). Si quieres, luego lo cambiamos por otro.
+# Este suele traer "name" o similar.
+BARRIOS_GEOJSON_URL = "https://raw.githubusercontent.com/codeforamerica/click_that_hood/master/public/data/madrid-neighborhoods.geojson"
 
 @st.cache_data(show_spinner=True)
-def load_barrios_geodata() -> gpd.GeoDataFrame:
-    """
-    Descarga el SHP oficial de Barrios (Ayuntamiento de Madrid), lo lee con GeoPandas,
-    lo reproyecta a WGS84 y devuelve un GeoDataFrame listo para Folium.
-    """
-    r = requests.get(BARRIOS_SHP_ZIP_URL, timeout=60)
+def load_barrios_geojson() -> Dict[str, Any]:
+    r = requests.get(BARRIOS_GEOJSON_URL, timeout=60)
     r.raise_for_status()
+    return r.json()
 
-    z = zipfile.ZipFile(io.BytesIO(r.content))
-    # Extraer en memoria a /tmp
-    extract_dir = "/tmp/madrid_barrios_shp"
-    os.makedirs(extract_dir, exist_ok=True)
-    z.extractall(extract_dir)
 
-    # Encontrar el .shp
-    shp_path = None
-    for root, _, files in os.walk(extract_dir):
-        for f in files:
-            if f.lower().endswith(".shp"):
-                shp_path = os.path.join(root, f)
+def extract_barrios_list(geojson: Dict[str, Any]) -> List[str]:
+    feats = geojson.get("features", [])
+    names = []
+    for f in feats:
+        props = f.get("properties", {}) or {}
+        # intenta varias keys comunes
+        for k in ["name", "NAME", "neighborhood", "Barrio", "barrio", "NOMBRE"]:
+            if k in props and props[k]:
+                names.append(str(props[k]).strip())
                 break
-        if shp_path:
-            break
-    if not shp_path:
-        raise RuntimeError("No encontré un archivo .shp dentro del zip de Barrios.")
-
-    gdf = gpd.read_file(shp_path)
-
-    # Reproyectar a WGS84
-    if gdf.crs is None:
-        # Según metadato es EPSG:25830 normalmente, pero si viene sin CRS, intentamos asignarlo
-        gdf = gdf.set_crs(epsg=25830, allow_override=True)
-    gdf = gdf.to_crs(epsg=4326)
-
-    # Normalizar columna de nombre barrio (según dataset suele tener NOMBRE / BARRIO / etc.)
-    cols_lower = {c.lower(): c for c in gdf.columns}
-    name_col = None
-    for candidate in ["barrio", "nombre", "nom_barrio", "distrito", "barrios"]:
-        if candidate in cols_lower:
-            name_col = cols_lower[candidate]
-            break
-    if name_col is None:
-        # si no, toma la primera columna tipo object
-        obj_cols = [c for c in gdf.columns if gdf[c].dtype == "object"]
-        if obj_cols:
-            name_col = obj_cols[0]
-        else:
-            raise RuntimeError("No encontré una columna de nombre de barrio en el SHP.")
-
-    gdf = gdf.rename(columns={name_col: "barrio_nombre"})
-    gdf["barrio_nombre"] = gdf["barrio_nombre"].astype(str).str.strip()
-
-    # Elimina geometrías inválidas
-    gdf = gdf[gdf.geometry.notnull()].copy()
-    gdf["geometry"] = gdf["geometry"].buffer(0)
-
-    return gdf
+    # si no encontró nada, crea ids genéricos
+    if not names:
+        names = [f"Barrio {i+1}" for i in range(len(feats))]
+    # únicos + orden
+    names = sorted(list(dict.fromkeys(names)))
+    return names
 
 
-def barrios_map(selected_barrios: List[str], gdf: gpd.GeoDataFrame, height=520):
-    """
-    Renderiza mapa folium con polígonos. Seleccionados se resaltan.
-    """
+def style_fn(selected_set: set, name_value: str):
+    is_sel = name_value in selected_set
+    return {
+        "fillColor": BRAND_DARK if is_sel else "#ffffff",
+        "color": BRAND_DARK if is_sel else "#666666",
+        "weight": 2 if is_sel else 1,
+        "fillOpacity": 0.35 if is_sel else 0.08,
+    }
+
+
+def render_barrios_map(geojson: Dict[str, Any], selected_barrios: List[str], height=520):
+    selected_set = set(selected_barrios)
     madrid_center = [40.4168, -3.7038]
     m = folium.Map(location=madrid_center, zoom_start=11, tiles="cartodbpositron")
 
-    # estilo
-    def style_fn(feature):
-        b = feature["properties"].get("barrio_nombre", "")
-        is_sel = b in set(selected_barrios)
-        return {
-            "fillColor": BRAND_DARK if is_sel else "#ffffff",
-            "color": BRAND_DARK if is_sel else "#666666",
-            "weight": 2 if is_sel else 1,
-            "fillOpacity": 0.35 if is_sel else 0.08,
-        }
+    feats = geojson.get("features", [])
+    for f in feats:
+        props = f.get("properties", {}) or {}
+        # determina nombre
+        name_val = None
+        for k in ["name", "NAME", "neighborhood", "Barrio", "barrio", "NOMBRE"]:
+            if k in props and props[k]:
+                name_val = str(props[k]).strip()
+                break
+        if not name_val:
+            continue
 
-    gj = GeoJson(
-        data=json.loads(gdf.to_json()),
-        style_function=style_fn,
-        tooltip=GeoJsonTooltip(fields=["barrio_nombre"], aliases=["Barrio:"]),
-        name="Barrios",
-    )
-    gj.add_to(m)
-
-    folium.LayerControl(collapsed=True).add_to(m)
+        gj = GeoJson(
+            data=f,
+            style_function=lambda feature, n=name_val: style_fn(selected_set, n),
+            tooltip=GeoJsonTooltip(fields=[], aliases=[]),
+            name=name_val,
+        )
+        gj.add_child(folium.Tooltip(name_val))
+        gj.add_to(m)
 
     st_folium(m, height=height, use_container_width=True)
 
 
 # =========================
-# SURVEY FIELDS
+# SURVEY
 # =========================
 ROOM_OPTIONS = [
-    "1 habitación",
-    "2 habitaciones",
-    "3 habitaciones",
-    "4 habitaciones",
-    "5 habitaciones",
-    "6 habitaciones",
-    "7 habitaciones",
-    "8 habitaciones",
-    "9 habitaciones",
-    "10 habitaciones",
-    "11+ habitaciones",
+    "1 habitación", "2 habitaciones", "3 habitaciones", "4 habitaciones", "5 habitaciones",
+    "6 habitaciones", "7 habitaciones", "8 habitaciones", "9 habitaciones", "10 habitaciones",
+    "11+ habitaciones"
 ]
-
 LIVING_PREF = ["Hombre", "Mujer", "Mixto"]
 
 
 def whatsapp_country_from_phone(phone: str) -> str:
-    """
-    Inferencia básica por prefijo. (No dependemos de phonenumbers si falla)
-    """
     p = phone.strip().replace(" ", "")
     if not p:
         return "—"
     if not p.startswith("+"):
-        # si meten solo números, asumimos España si empieza con 6/7/9 y longitud típica
         if p.startswith(("6", "7", "9")) and len(p) in (9, 10):
             return "España (posible)"
         return "—"
-    # mapeo básico
     prefixes = {
         "+34": "España",
         "+52": "México",
@@ -312,23 +257,13 @@ def whatsapp_country_from_phone(phone: str) -> str:
 
 
 def compute_score(answers: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Scoring simple/visible (lo puedes tunear).
-    """
-    weights = {
-        "completitud": 25,
-        "zonas": 15,
-        "fechas": 20,
-        "requisitos": 10,
-        "operativo": 15,
-    }
+    weights = {"completitud": 25, "zonas": 15, "fechas": 20, "requisitos": 10, "operativo": 15}
 
-    completitud = 0
     required = ["full_name", "whatsapp", "age", "budget", "move_in", "move_out"]
     have = sum(1 for k in required if answers.get(k))
     completitud = int((have / len(required)) * 100)
 
-    zonas = min(100, int(len(answers.get("barrios", [])) * 12.5))  # 8 barrios = 100
+    zonas = min(100, int(len(answers.get("barrios", [])) * 12.5))
     fechas = 100 if answers.get("move_in") and answers.get("move_out") else 0
     requisitos = 100 if answers.get("living_with") else 0
     operativo = 100 if answers.get("rooms") else 0
@@ -341,28 +276,18 @@ def compute_score(answers: Dict[str, Any]) -> Dict[str, Any]:
         "operativo": operativo,
     }
 
-    weighted = 0.0
     total_w = sum(weights.values())
-    for k, v in components.items():
-        weighted += (v * weights[k]) / total_w
-
-    return {
-        "score_total": round(weighted, 1),
-        "score_components": components,
-        "weights": weights,
-    }
+    weighted = sum((components[k] * weights[k]) / total_w for k in components)
+    return {"score_total": round(weighted, 1), "score_components": components, "weights": weights}
 
 
 def generate_whatsapp_intro(answers: Dict[str, Any]) -> str:
-    budget = answers.get("budget", "—")
-    barrios = answers.get("barrios", [])
-    move_in = answers.get("move_in")
-    move_out = answers.get("move_out")
-    zonas = ", ".join(barrios[:6]) + ("…" if len(barrios) > 6 else "")
+    zonas = answers.get("barrios", [])
+    zonas_txt = ", ".join(zonas[:6]) + ("…" if len(zonas) > 6 else "")
     return (
         "Hola! Soy del equipo de HausMate Match 😊\n"
-        f"Vi tu perfil: budget €{budget}, zonas {zonas if zonas else '—'}, "
-        f"fechas {move_in if move_in else '—'}–{move_out if move_out else '—'}.\n"
+        f"Vi tu perfil: budget €{answers.get('budget','—')}, zonas {zonas_txt if zonas_txt else '—'}, "
+        f"fechas {answers.get('move_in','—')}–{answers.get('move_out','—')}.\n"
         "¿Te va bien si te comparto opciones que encajen contigo hoy?"
     )
 
@@ -371,7 +296,6 @@ def generate_whatsapp_intro(answers: Dict[str, Any]) -> str:
 # APP
 # =========================
 st.set_page_config(page_title=APP_NAME, page_icon="🏠", layout="wide")
-
 brand_css()
 render_header()
 
@@ -379,7 +303,7 @@ render_header()
 with st.sidebar:
     st.markdown("<div class='haus-card'>", unsafe_allow_html=True)
     st.markdown("### 🔒 Admin")
-    admin_pw = get_secret("ADMIN_PASSWORD", "")
+    admin_pw = get_secret("ADMIN_PASSWORD", "").strip()
     if not admin_pw:
         st.warning("No hay ADMIN_PASSWORD en Secrets.")
     input_pw = st.text_input("Password admin", type="password")
@@ -399,19 +323,19 @@ st.markdown("### 📝 Encuesta")
 st.markdown("Completa esto para que podamos hacerte match rápido y bien.")
 st.markdown("</div>", unsafe_allow_html=True)
 
-# Load barrios
-barrios_load_err = ""
-gdf_barrios = None
-try:
-    with st.spinner("Cargando mapa de barrios de Madrid…"):
-        gdf_barrios = load_barrios_geodata()
-except Exception as e:
-    barrios_load_err = str(e)
-
 if "selected_barrios" not in st.session_state:
     st.session_state["selected_barrios"] = []
 
-# Form
+geo_err = ""
+geojson = None
+barrios_options = []
+try:
+    with st.spinner("Cargando mapa de barrios de Madrid…"):
+        geojson = load_barrios_geojson()
+        barrios_options = extract_barrios_list(geojson)
+except Exception as e:
+    geo_err = str(e)
+
 with st.form("survey_form", clear_on_submit=False):
     st.markdown("<div class='haus-card'>", unsafe_allow_html=True)
 
@@ -437,23 +361,17 @@ with st.form("survey_form", clear_on_submit=False):
     st.markdown("---")
     st.markdown("### 🗺️ Zonas / Barrios (selecciona 1 o varios)")
 
-    if barrios_load_err:
-        st.markdown(f"<div class='danger'>No pude cargar el mapa: {barrios_load_err}</div>", unsafe_allow_html=True)
-        barrios_options = []
+    if geo_err:
+        st.markdown(f"<div class='danger'>No pude cargar el mapa: {geo_err}</div>", unsafe_allow_html=True)
     else:
-        barrios_options = sorted(gdf_barrios["barrio_nombre"].unique().tolist())
-
-    # Multiselect + mapa resaltado (persistente)
-    selected = st.multiselect(
-        "Busca y selecciona barrios",
-        options=barrios_options,
-        default=st.session_state["selected_barrios"],
-        help="Puedes seleccionar varios. Se quedarán marcados en el mapa.",
-    )
-    st.session_state["selected_barrios"] = selected
-
-    if not barrios_load_err and gdf_barrios is not None:
-        barrios_map(selected, gdf_barrios, height=520)
+        selected = st.multiselect(
+            "Busca y selecciona barrios",
+            options=barrios_options,
+            default=st.session_state["selected_barrios"],
+            help="Puedes seleccionar varios. Se quedarán marcados en el mapa.",
+        )
+        st.session_state["selected_barrios"] = selected
+        render_barrios_map(geojson, selected, height=520)
 
     st.markdown("---")
     st.markdown("### 📅 Fechas")
@@ -468,11 +386,9 @@ with st.form("survey_form", clear_on_submit=False):
     notes = st.text_area("Cuéntanos lo más importante (rutina, mascotas, humo, etc.)", height=120)
 
     submitted = st.form_submit_button("✅ Enviar")
-
     st.markdown("</div>", unsafe_allow_html=True)
 
 if submitted:
-    # payload
     answers = {
         "full_name": full_name.strip(),
         "whatsapp": whatsapp.strip(),
@@ -524,12 +440,9 @@ if submitted:
     st.text_area("Copia y pega:", value=generate_whatsapp_intro(answers), height=100)
     st.markdown("</div>", unsafe_allow_html=True)
 
-    st.markdown("<div style='height:10px'></div>")
     st.button("➕ Nuevo registro", on_click=lambda: st.session_state.update({"selected_barrios": []}))
 
-# =========================
-# ADMIN RESULTS VIEW
-# =========================
+# ADMIN RESULTS
 if admin_password_ok():
     st.markdown("<div class='haus-card'>", unsafe_allow_html=True)
     st.markdown("## 📊 Resultados (solo admin)")
@@ -541,7 +454,6 @@ if admin_password_ok():
         st.error(err)
     else:
         try:
-            # últimos 200
             res = client.table(table).select("*").order("created_at", desc=True).limit(200).execute()
             rows = res.data if hasattr(res, "data") else []
             df = pd.DataFrame(rows)
@@ -549,8 +461,12 @@ if admin_password_ok():
                 st.info("Aún no hay registros.")
             else:
                 st.dataframe(df, use_container_width=True, height=420)
-                csv = df.to_csv(index=False).encode("utf-8")
-                st.download_button("⬇️ Descargar CSV", data=csv, file_name="hausmate_leads.csv", mime="text/csv")
+                st.download_button(
+                    "⬇️ Descargar CSV",
+                    data=df.to_csv(index=False).encode("utf-8"),
+                    file_name="hausmate_leads.csv",
+                    mime="text/csv",
+                )
         except Exception as e:
             st.error(f"No pude leer resultados: {e}")
 
