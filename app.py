@@ -1,5 +1,6 @@
 import os
 import datetime as dt
+import hashlib
 from typing import Dict, Any
 import streamlit as st
 import folium
@@ -117,7 +118,7 @@ with st.form("main_form", border=False):
     with c1:
         fn = st.text_input(t["name"], placeholder="John Doe")
         wa = st.text_input(t["wa"], placeholder="+34 600 000 000")
-        age = st.number_input(t["age"], 18, 99, 25)
+        age_val = st.number_input(t["age"], 18, 99, 25)
         lw = st.selectbox(t["lw"], ["Mixto", "Solo Mujeres", "Solo Hombres"])
     
     with c2:
@@ -136,7 +137,7 @@ with st.form("main_form", border=False):
     with c4:
         m_out = st.date_input(t["move_out"], dt.date.today() + dt.timedelta(days=180))
         
-    notes = st.text_area(t["notes"], placeholder="..." )
+    notes_content = st.text_area(t["notes"], placeholder="..." )
     
     # Mapa decorativo de Madrid
     m = folium.Map(location=[40.4168, -3.7038], zoom_start=12, tiles="cartodbpositron")
@@ -151,19 +152,26 @@ if enviar:
     if not fn or not wa:
         st.error(t["error"])
     else:
+        # Generar una dedupe_key única basada en el teléfono para evitar duplicados
+        # (Opcional: podrías usar el timestamp si prefieres permitir múltiples registros por teléfono)
+        clean_wa = "".join(filter(str.isdigit, wa))
+        dedupe_key = hashlib.md5(f"{clean_wa}_{dt.datetime.now().date()}".encode()).hexdigest()
+
+        # MAPEADO SEGÚN EL SQL SCHEMA PROPORCIONADO
         payload = {
-            "full_name": fn, 
-            "whatsapp": wa, 
-            "age": int(age), 
+            "nombre": fn,
+            "telefono": wa,
+            "telefono_raw": wa,
+            "dedupe_key": dedupe_key,
+            "edad": int(age_val),
             "budget": int(bg),
-            "rooms": rm, 
-            "living_with": lw, 
-            "barrios": barrios_sel, 
-            "move_in": m_in.isoformat(), 
-            "move_out": m_out.isoformat(),
-            "notes": f"UI_Lang: {lang}. {notes}", 
-            "country_guess": country,
-            "main_language": idioma_val,
+            "habitaciones": rm,
+            "pref_genero": lw,
+            "zona": ", ".join(barrios_sel) if barrios_sel else "Sin especificar",
+            "inicio": m_in.isoformat(),
+            "fin": m_out.isoformat(),
+            "notas": f"Country: {country}. UI_Lang: {lang}. {notes_content}",
+            "idioma": idioma_val,
             "created_at": dt.datetime.now(dt.timezone.utc).isoformat()
         }
         
@@ -173,4 +181,8 @@ if enviar:
                 st.balloons()
                 st.success(t["success"])
             else:
-                st.error(f"Error: {error_msg}")
+                # Si el error es por la unique constraint del dedupe_key, mostrar mensaje amigable
+                if "duplicate key" in error_msg.lower():
+                    st.warning("⚠️ Ya hemos recibido una solicitud de este número hoy. ¡Te contactaremos pronto!")
+                else:
+                    st.error(f"Error técnico al guardar: {error_msg}")
