@@ -4,3 +4,4 @@ openpyxl
 phonenumbers
 folium
 streamlit-folium
+supabase
