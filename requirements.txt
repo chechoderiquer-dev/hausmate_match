@@ -4,6 +4,3 @@ openpyxl
 phonenumbers
 folium
 streamlit-folium
-geopandas
-shapely
-pyproj
