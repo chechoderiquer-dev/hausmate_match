@@ -74,7 +74,7 @@ texts = {
     "Español": {
         "title": "📝 Encuentra tu HausMate",
         "name": "Nombre completo *", "wa": "WhatsApp (+34) *", "age": "Edad",
-        "lw": "Preferencia de convivencia", "budget": "Presupuesto Máximo (€)",
+        "gender": "Tu género", "lw": "Preferencia de convivencia", "budget": "Presupuesto Máximo (€)",
         "rooms": "Habitaciones en casa", "country": "País de origen",
         "idioma_form": "Idioma principal", "zonas": "📍 Zonas preferidas",
         "zonas_help": "Selecciona los distritos", "move_in": "¿Cuándo entras?",
@@ -107,7 +107,7 @@ texts = {
     "English": {
         "title": "📝 Find your HausMate",
         "name": "Full Name *", "wa": "WhatsApp (with +) *", "age": "Age",
-        "lw": "Living preference", "budget": "Max Budget (€)",
+        "gender": "Your gender", "lw": "Living preference", "budget": "Max Budget (€)",
         "rooms": "Rooms in house", "country": "Country of origin",
         "idioma_form": "Main language", "zonas": "📍 Preferred areas",
         "zonas_help": "Select districts", "move_in": "Move-in date",
@@ -126,13 +126,10 @@ texts = {
 }
 t = texts[lang]
 
-# --- CABECERA CON LOGO (URL CORREGIDA PARA GITHUB RAW) ---
+# --- CABECERA CON LOGO ---
 col_logo_1, col_logo_2, col_logo_3 = st.columns([1, 3, 1])
 with col_logo_2:
-    # URL corregida basada en tu captura de GitHub (chechoderiquer-dev / hausmate_match)
-    # Importante: Usamos raw.githubusercontent.com para obtener el archivo directo
     logo_url = "https://raw.githubusercontent.com/chechoderiquer-dev/hausmate_match/main/logo_hausmate.png"
-    
     try:
         st.image(logo_url, use_container_width=True)
     except:
@@ -162,13 +159,15 @@ with st.form("main_form", border=False):
         fn = st.text_input(t["name"], placeholder="John Doe")
         wa = st.text_input(t["wa"], placeholder="+34 600 000 000")
         age_val = st.number_input(t["age"], 18, 99, 25)
-        lw = st.selectbox(t["lw"], ["Mixto", "Solo Mujeres", "Solo Hombres"])
+        user_gender = st.selectbox(t["gender"], ["Mujer", "Hombre", "Otro"])
     
     with c2:
         bg = st.number_input(t["budget"], 0, 5000, 800, step=50)
         rm = st.selectbox(t["rooms"], ["1", "2", "3", "4", "5+"])
+        pref_gender = st.selectbox(t["lw"], ["Mixto", "Solo Mujeres", "Solo Hombres"])
         country = st.text_input(t["country"], "España" if lang == "Español" else "Spain")
-        idioma_val = st.selectbox(t["idioma_form"], ["Spanish", "English", "French", "German", "Other"])
+
+    idioma_val = st.selectbox(t["idioma_form"], ["Spanish", "English", "French", "German", "Other"])
 
     st.write(t["zonas"])
     distritos = ["Centro", "Arganzuela", "Retiro", "Salamanca", "Chamartín", "Tetuán", "Chamberí", "Fuencarral-El Pardo", "Moncloa-Aravaca", "Latina", "Carabanchel", "Usera", "Puente de Vallecas", "Moratalaz", "Ciudad Lineal", "Hortaleza", "Villaverde", "Villa de Vallecas", "Vicálvaro", "San Blas-Canillejas", "Barajas", "Otros"]
@@ -209,18 +208,21 @@ if enviar:
         clean_wa = "".join(filter(str.isdigit, wa))
         dedupe_key = hashlib.md5(f"{clean_wa}_{now_utc.date()}".encode()).hexdigest()
 
-        # Registro legal detallado en notas para respaldo
+        # Registro legal detallado dentro del campo notas (ya que no existe columna legal_log)
         extended_notes = (
-            f"--- LOG LEGAL ---\n"
-            f"Política: {POLICY_VERSION}\n"
-            f"Timestamp: {now_utc.isoformat()}\n"
-            f"--- OTROS DATOS ---\n"
+            f"--- DATOS COMPLEMENTARIOS ---\n"
             f"País: {country}\n"
             f"Idioma: {idioma_val}\n"
-            f"Comentarios: {notes_content}"
+            f"Comentarios: {notes_content}\n\n"
+            f"--- CONSENTIMIENTO LEGAL ---\n"
+            f"Política: {POLICY_VERSION}\n"
+            f"Timestamp: {now_utc.isoformat()}\n"
+            f"Aceptó Privacidad: Sí\n"
+            f"Aceptó Compartir: Sí\n"
+            f"Aceptó WhatsApp: Sí"
         )
 
-        # MAPEO DE COLUMNAS (Sincronizado con tu Supabase)
+        # MAPEO DE COLUMNAS EXACTO SEGÚN CAPTURAS DE SUPABASE
         payload = {
             "nombre": fn,
             "telefono": wa,
@@ -228,9 +230,9 @@ if enviar:
             "dedupe_key": dedupe_key,
             "budget": int(bg),
             "habitaciones": rm,
-            "pref_genero": lw,    
-            "edad": int(age_val), 
-            "genero": lw,         
+            "pref_genero": pref_gender, # Columna confirmada en imagen f00382
+            "edad": int(age_val),       # Columna confirmada en imagen ef99c8
+            "genero": user_gender,      # Columna confirmada en imagen ef99c8
             "zona": ", ".join(barrios_sel) if barrios_sel else "Sin especificar",
             "inicio": m_in.isoformat(),
             "fin": m_out.isoformat(),
