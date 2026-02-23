@@ -23,7 +23,14 @@ def apply_style():
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
             margin-bottom: 20px;
           }
-          .stButton > button { background: #0C2D33; color: white; width: 100%; border-radius: 10px; font-weight: bold; }
+          .stButton > button { 
+            background: #0C2D33 !important; 
+            color: white !important; 
+            width: 100%; 
+            border-radius: 10px; 
+            font-weight: bold; 
+            height: 3em;
+          }
         </style>
         """,
         unsafe_allow_html=True,
@@ -34,14 +41,14 @@ def apply_style():
 # =========================
 def get_supabase_client():
     try:
-        # Limpieza de posibles espacios o comillas accidentales
-        url = st.secrets["SUPABASE_URL"].strip().replace('"', '').replace("'", "")
-        key = st.secrets["SUPABASE_SERVICE_ROLE_KEY"].strip().replace('"', '').replace("'", "")
+        # Limpieza de seguridad para evitar errores de red (errno -2)
+        url = st.secrets["SUPABASE_URL"].strip().replace('"', '').replace(" ", "")
+        key = st.secrets["SUPABASE_SERVICE_ROLE_KEY"].strip().replace('"', '').replace(" ", "")
         
         from supabase import create_client
         return create_client(url, key), ""
     except Exception as e:
-        return None, f"Error en configuración de Secrets: {str(e)}"
+        return None, f"Error en Secrets: {str(e)}"
 
 def save_lead(payload: Dict[str, Any]):
     client, err = get_supabase_client()
@@ -52,15 +59,15 @@ def save_lead(payload: Dict[str, Any]):
         client.table(table).insert(payload).execute()
         return True, ""
     except Exception as e:
-        return False, f"Error de red o base de datos: {str(e)}"
+        return False, f"Error de conexión: {str(e)}"
 
 # =========================
 # INTERFAZ DE USUARIO
 # =========================
 apply_style()
 st.markdown("<h1 style='text-align: center; color: #0C2D33;'>🏠 HausMate Match</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: #0C2D33;'>Encuentra tu match ideal en Madrid</p>", unsafe_allow_html=True)
 
+# Lista de distritos local para evitar errores 404 de URLs externas
 distritos = [
     "Arganzuela", "Barajas", "Carabanchel", "Centro", "Chamartín", 
     "Chamberí", "Ciudad Lineal", "Fuencarral-El Pardo", "Hortaleza", 
@@ -79,14 +86,14 @@ with st.container():
             phone = st.text_input("WhatsApp *", placeholder="+34...")
         with col2:
             budget = st.number_input("Presupuesto Max (€)", 0, 5000, 800)
-            pref = st.selectbox("Preferencia de convivencia", ["Mixto", "Hombres", "Mujeres"])
+            pref = st.selectbox("Preferencia", ["Mixto", "Hombres", "Mujeres"])
         
         st.write("📍 **¿Dónde quieres vivir?**")
         barrios = st.multiselect("Selecciona distritos", options=distritos)
         
-        # Mapa de referencia básico
+        # Mapa local básico para evitar errores 404 (image_e1fa8a.png)
         m = folium.Map(location=[40.4168, -3.7038], zoom_start=11, tiles="cartodbpositron")
-        st_folium(m, height=200, use_container_width=True, key="mapa_fijo")
+        st_folium(m, height=250, use_container_width=True, key="mapa_madrid")
         
         notes = st.text_area("Notas adicionales")
         submitted = st.form_submit_button("ENVIAR MI PERFIL")
@@ -94,9 +101,8 @@ with st.container():
 
 if submitted:
     if not name or not phone:
-        st.error("⚠️ Por favor, rellena el nombre y el WhatsApp.")
+        st.error("⚠️ El nombre y el WhatsApp son obligatorios.")
     else:
-        # Formateo de datos
         data = {
             "full_name": name.strip(),
             "whatsapp": phone.strip(),
@@ -106,13 +112,12 @@ if submitted:
             "notes": notes.strip(),
             "created_at": dt.datetime.now(dt.timezone.utc).isoformat()
         }
-        
-        with st.spinner("Conectando con la base de datos..."):
+        with st.spinner("Guardando perfil..."):
             success, error_msg = save_lead(data)
             if success:
                 st.balloons()
-                st.success("✅ ¡Recibido! Nos pondremos en contacto contigo pronto.")
+                st.success("✅ ¡Recibido! Nos pondremos en contacto pronto.")
             else:
-                st.error("❌ Error al enviar.")
-                with st.expander("Ver detalles técnicos del error"):
+                st.error("❌ Error al enviar a la base de datos.")
+                with st.expander("Detalles técnicos"):
                     st.write(error_msg)
