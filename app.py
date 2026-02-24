@@ -9,7 +9,7 @@ from streamlit_folium import st_folium
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="HausMate Match", page_icon="🏠", layout="centered")
 
-# --- ESTILO PERSONALIZADO ---
+# --- ESTILO PERSONALIZADO RESPONSIVO ---
 st.markdown("""
     <style>
     /* 1. Fondo degradado */
@@ -17,47 +17,74 @@ st.markdown("""
         background: linear-gradient(180deg, #7FBBC2 0%, #D9F1F3 60%, #ffffff 100%); 
     }
     
-    /* 2. Ajustes de contenedor */
+    /* 2. Ajustes de contenedor principal */
     .block-container { 
         padding-top: 1.5rem !important; 
-        max-width: 700px !important; 
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+        max-width: 800px !important; 
     }
     
-    /* 3. Estilo de la tarjeta blanca */
+    /* 3. Tarjeta adaptable (Responsive Card) */
     .haus-card { 
         background: white; 
-        padding: 2rem; 
+        padding: 1.5rem; 
         border-radius: 20px; 
         box-shadow: 0 10px 25px rgba(0,0,0,0.1); 
-        margin-top: 15px;
+        margin-top: 10px;
         color: #0C2D33;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    /* Ajuste para pantallas grandes */
+    @media (min-width: 768px) {
+        .haus-card {
+            padding: 2.5rem;
+        }
     }
     
-    /* 4. Botón personalizado */
+    /* 4. Botón con feedback táctil y visual */
     div.stButton > button:first-child {
         width: 100%;
         background-color: #0C2D33 !important;
         color: white !important;
         font-weight: bold;
         border-radius: 12px;
-        height: 3.5em;
+        height: 3.8em;
         border: none;
-        transition: 0.3s;
+        transition: all 0.3s ease;
+        font-size: 16px;
     }
     div.stButton > button:first-child:hover {
         background-color: #164a54 !important;
+        transform: translateY(-2px);
         box-shadow: 0 4px 12px rgba(0,0,0,0.2);
     }
+    div.stButton > button:first-child:active {
+        transform: translateY(0);
+    }
 
-    /* Forzar centrado de la imagen del logo */
+    /* 5. Asegurar que las imágenes no se desborden */
+    [data-testid="stImage"] img {
+        max-width: 100%;
+        height: auto;
+    }
+
+    /* Forzar centrado del logo */
     [data-testid="stImage"] {
         display: flex;
         justify-content: center;
-        margin-bottom: 10px;
+        margin-bottom: 5px;
     }
 
-    /* Ocultar elementos innecesarios */
+    /* Ocultar elementos de Streamlit para look App nativa */
     #MainMenu, footer, header {visibility: hidden;}
+    
+    /* Ajuste de inputs para móviles (más espacio para tocar) */
+    input, select, textarea {
+        font-size: 16px !important; /* Evita zoom automático en iOS */
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -65,7 +92,7 @@ st.markdown("""
 POLICY_VERSION = "v1.1-2024-05-24" 
 
 # --- SELECTOR DE IDIOMA ---
-col_l, col_r = st.columns([4, 1])
+col_l, col_r = st.columns([3, 1])
 with col_r:
     lang = st.radio("Lang", ["Español", "English"], horizontal=True, label_visibility="collapsed")
 
@@ -75,63 +102,53 @@ texts = {
         "title": "📝 Encuentra tu HausMate",
         "name": "Nombre completo *", "wa": "WhatsApp (+34) *", "age": "Edad",
         "gender": "Tu género", "lw": "Preferencia de convivencia", "budget": "Presupuesto Máximo (€)",
-        "rooms": "Número máximo de habitaciones", "country": "País de origen",
+        "rooms": "Habitaciones", "country": "País de origen",
         "idioma_form": "Idioma principal", "zonas": "📍 Zonas preferidas",
         "zonas_help": "Selecciona los distritos", "move_in": "¿Cuándo entras?",
         "move_out": "¿Hasta cuándo?", "notes": "Sobre ti (trabajo, hobbies...)",
         "btn": "¡REGISTRARME Y BUSCAR MATCH!", 
-        "error": "⚠️ Requerido: Nombre, WhatsApp y aceptar las 3 casillas legales.",
-        "success": "✅ ¡Datos guardados con éxito!", "loading": "Guardando datos...",
+        "error": "⚠️ Requerido: Nombre, WhatsApp y aceptar las casillas legales.",
+        "success": "✅ ¡Datos guardados con éxito!", "loading": "Procesando registro...",
         "legal_header": "⚖️ Información Legal y Privacidad",
-        "legal_notice": "Responsable: HausMate. Finalidad: Gestionar tu solicitud y realizar el 'match'.",
-        "legal_opt1": "He leído y acepto la Política de Privacidad y el tratamiento de mis datos. *",
-        "legal_opt2": "Autorizo expresamente a compartir mi contacto y perfil con otros matches. *",
-        "legal_opt3": "Acepto ser contactado por WhatsApp para la gestión del servicio. *",
-        "view_policy": "Leer Política de Privacidad completa",
+        "legal_opt1": "Acepto la Política de Privacidad. *",
+        "legal_opt2": "Autorizo compartir mi perfil con otros matches. *",
+        "legal_opt3": "Acepto contacto por WhatsApp. *",
+        "view_policy": "Ver Política Completa",
         "policy_content": """
-**POLÍTICA DE PRIVACIDAD Y CONSENTIMIENTO DE TRATAMIENTO**
-
-**Responsable del Tratamiento:** El responsable de los datos recogidos en esta encuesta es HausMate. Para cualquier consulta o ejercicio de derechos, puede dirigirse a nuestro Delegado de Protección de Datos a través del correo electrónico: info@haus-es.com.
-
-**Finalidad del Tratamiento:** Los datos de carácter personal recabados (nombre, preferencias de vivienda y datos de contacto) se utilizarán exclusivamente para gestionar su perfil de búsqueda, analizar la compatibilidad con otros usuarios y facilitar la conexión ("Matching") entre las partes interesadas.
-
-**Base Jurídica (Legitimación):** El tratamiento se basa en el consentimiento libre, específico, informado e inequívoco del usuario (Art. 6.1.a RGPD) manifestado mediante la marcación de las casillas de aceptación.
-
-**Cesión y Comunicación de Datos:** En cumplimiento del principio de minimización, sus datos de contacto (Nombre y WhatsApp) solo serán compartidos con aquellos usuarios con los que el sistema genere un "match" positivo y aceptado. Fuera de este supuesto, no se cederán datos a terceros ni se realizarán transferencias internacionales, salvo requerimiento judicial o administrativo.
-
-**Plazo de Conservación:** Los datos se conservarán mientras se mantenga la relación para la prestación del servicio de matching o hasta que el usuario revoque su consentimiento. Una vez finalizada la finalidad, los datos serán bloqueados y posteriormente eliminados conforme a la normativa vigente.
-
-**Derechos del Usuario:** Usted tiene derecho a retirar su consentimiento en cualquier momento. Puede ejercer sus derechos de acceso, rectificación, supresión ("derecho al olvido"), limitación del tratamiento, portabilidad y oposición enviando un correo electrónico a info@haus-es.com. Asimismo, se le informa de su derecho a presentar una reclamación ante la Agencia Española de Protección de Datos (AEPD) si considera vulnerados sus derechos.
+**POLÍTICA DE PRIVACIDAD**
+Responsable: HausMate (info@haus-es.com).
+Finalidad: Gestión de perfiles y Matching.
+Legitimación: Consentimiento del usuario.
+Derechos: Acceso, rectificación y supresión enviando correo a info@haus-es.com.
         """
     },
     "English": {
         "title": "📝 Find your HausMate",
         "name": "Full Name *", "wa": "WhatsApp (with +) *", "age": "Age",
         "gender": "Your gender", "lw": "Living preference", "budget": "Max Budget (€)",
-        "rooms": "Maximum number of rooms", "country": "Country of origin",
+        "rooms": "Rooms", "country": "Country of origin",
         "idioma_form": "Main language", "zonas": "📍 Preferred areas",
         "zonas_help": "Select districts", "move_in": "Move-in date",
         "move_out": "Move-out date", "notes": "About you (work, hobbies...)",
         "btn": "REGISTER & FIND MATCH!", 
-        "error": "⚠️ Required: Name, WhatsApp, and the 3 legal consent boxes.",
-        "success": "✅ Data saved successfully.", "loading": "Saving data...",
+        "error": "⚠️ Required: Name, WhatsApp, and legal boxes.",
+        "success": "✅ Data saved successfully.", "loading": "Processing...",
         "legal_header": "⚖️ Legal Information & Privacy",
-        "legal_notice": "Controller: HausMate. Purpose: Manage your request and match you.",
-        "legal_opt1": "I accept the Privacy Policy and data processing. *",
-        "legal_opt2": "I authorize sharing my contact/profile with matches. *",
-        "legal_opt3": "I agree to be contacted via WhatsApp for service management. *",
-        "view_policy": "Read full Privacy Policy",
-        "policy_content": "Please refer to the Spanish version for the official legal text. By accepting, you consent to the processing of your data as described in the GDPR compliance section."
+        "legal_opt1": "I accept the Privacy Policy. *",
+        "legal_opt2": "I authorize sharing my profile with matches. *",
+        "legal_opt3": "I agree to be contacted via WhatsApp. *",
+        "view_policy": "View Full Policy",
+        "policy_content": "Please refer to the Spanish version for the official text. By accepting, you consent to the data processing policy."
     }
 }
 t = texts[lang]
 
 # --- CABECERA CON LOGO ---
-col_logo_1, col_logo_2, col_logo_3 = st.columns([1, 3, 1])
+col_logo_1, col_logo_2, col_logo_3 = st.columns([1, 4, 1])
 with col_logo_2:
     logo_url = "https://raw.githubusercontent.com/chechoderiquer-dev/hausmate_match/main/logo_hausmate.png"
     try:
-        st.image(logo_url, use_container_width=True)
+        st.image(logo_url, width=220)
     except:
         st.markdown("<h1 style='text-align: center; color: #0C2D33;'>HAUSMATE</h1>", unsafe_allow_html=True)
 
@@ -154,9 +171,10 @@ st.markdown('<div class="haus-card">', unsafe_allow_html=True)
 with st.form("main_form", border=False):
     st.markdown(f"<h3 style='text-align: center; margin-top: 0;'>{t['title']}</h3>", unsafe_allow_html=True)
     
+    # Grid adaptable: 2 columnas en PC, 1 en móvil automáticamente por Streamlit
     c1, c2 = st.columns(2)
     with c1:
-        fn = st.text_input(t["name"], placeholder="John Doe")
+        fn = st.text_input(t["name"], placeholder="Ej: John Doe")
         wa = st.text_input(t["wa"], placeholder="+34 600 000 000")
         age_val = st.number_input(t["age"], 18, 99, 25)
         user_gender = st.selectbox(t["gender"], ["Mujer", "Hombre", "Otro"])
@@ -179,11 +197,11 @@ with st.form("main_form", border=False):
     with c4:
         m_out = st.date_input(t["move_out"], dt.date.today() + dt.timedelta(days=180))
         
-    notes_content = st.text_area(t["notes"], placeholder="..." )
+    notes_content = st.text_area(t["notes"], placeholder="Cuéntanos un poco sobre ti..." )
     
-    # Mapa decorativo
-    m = folium.Map(location=[40.4168, -3.7038], zoom_start=12, tiles="cartodbpositron")
-    st_folium(m, height=180, use_container_width=True, key="madrid_map")
+    # Mapa (Streamlit-Folium es responsivo por defecto con use_container_width)
+    m = folium.Map(location=[40.4168, -3.7038], zoom_start=11, tiles="cartodbpositron")
+    st_folium(m, height=200, use_container_width=True, key="madrid_map")
     
     st.markdown("---")
     st.markdown(f"**{t['legal_header']}**")
@@ -208,17 +226,10 @@ if enviar:
         clean_wa = "".join(filter(str.isdigit, wa))
         dedupe_key = hashlib.md5(f"{clean_wa}_{now_utc.date()}".encode()).hexdigest()
 
-        # Registro legal en el campo 'notas' (que existe en minúsculas en tu esquema)
         extended_notes = (
-            f"--- LOG LEGAL ---\n"
-            f"Política: {POLICY_VERSION}\n"
-            f"Timestamp: {now_utc.isoformat()}\n"
-            f"País de Origen: {country}\n"
-            f"Consentimientos: Privacidad[OK], Perfil[OK], WhatsApp[OK]"
+            f"LOG LEGAL {POLICY_VERSION} | {now_utc.isoformat()} | Pais: {country} | Consentimiento: OK"
         )
 
-        # MAPEO DE COLUMNAS AJUSTADO AL ESQUEMA SQL
-        # Importante: "Perfil" va con P mayúscula para coincidir con tu base de datos
         payload = {
             "nombre": fn,
             "telefono": wa,
@@ -233,8 +244,8 @@ if enviar:
             "inicio": m_in.isoformat(),
             "fin": m_out.isoformat(),
             "idioma": idioma_val,       
-            "Perfil": notes_content,    # Corregido a "Perfil" (con P mayúscula)
-            "notas": extended_notes,    # 'notas' existe en minúsculas en tu esquema
+            "Perfil": notes_content,
+            "notas": extended_notes,
             "created_at": now_utc.isoformat()
         }
         
@@ -247,4 +258,4 @@ if enviar:
                 if "duplicate key" in error_msg.lower():
                     st.warning("⚠️ Ya recibimos tu solicitud hoy.")
                 else:
-                    st.error(f"Error de base de datos: {error_msg}")
+                    st.error(f"Error: {error_msg}")
