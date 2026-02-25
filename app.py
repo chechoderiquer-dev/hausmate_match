@@ -61,9 +61,6 @@ st.markdown("""
         transform: translateY(-2px);
         box-shadow: 0 4px 12px rgba(0,0,0,0.2);
     }
-    div.stButton > button:first-child:active {
-        transform: translateY(0);
-    }
 
     /* 5. Asegurar que las imágenes no se desborden */
     [data-testid="stImage"] img {
@@ -81,9 +78,9 @@ st.markdown("""
     /* Ocultar elementos de Streamlit para look App nativa */
     #MainMenu, footer, header {visibility: hidden;}
     
-    /* Ajuste de inputs para móviles (más espacio para tocar) */
+    /* Ajuste de inputs para móviles */
     input, select, textarea {
-        font-size: 16px !important; /* Evita zoom automático en iOS */
+        font-size: 16px !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -109,6 +106,7 @@ texts = {
         "btn": "¡REGISTRARME Y BUSCAR MATCH!", 
         "error": "⚠️ Requerido: Nombre, WhatsApp y aceptar las casillas legales.",
         "success": "✅ ¡Datos guardados con éxito!", "loading": "Procesando registro...",
+        "db_error": "❌ Error al conectar con la base de datos.",
         "legal_header": "⚖️ Información Legal y Privacidad",
         "legal_opt1": "Acepto la Política de Privacidad. *",
         "legal_opt2": "Autorizo compartir mi perfil con otros matches. *",
@@ -135,22 +133,23 @@ Derechos: Acceso, rectificación y supresión enviando correo a info@haus-es.com
         "success": "✅ Data saved successfully.", "loading": "Processing...",
         "legal_header": "⚖️ Legal Information & Privacy",
         "legal_opt1": "I accept the Privacy Policy. *",
-        "legal_opt2": "I authorize sharing mi perfil with matches. *",
+        "legal_opt2": "I authorize sharing my profile with matches. *",
         "legal_opt3": "I agree to be contacted via WhatsApp. *",
         "view_policy": "View Full Policy",
-        "policy_content": "Please refer to the Spanish version for the official text. By accepting, you consent to the data processing policy."
+        "policy_content": "Please refer to the Spanish version for the official text."
     }
 }
 t = texts[lang]
 
-# --- CABECERA CON LOGO (CORREGIDO PARA USAR ARCHIVO LOCAL) ---
+# --- CABECERA CON LOGO (CORREGIDO PARA CARGA LOCAL) ---
 col_logo_1, col_logo_2, col_logo_3 = st.columns([1, 4, 1])
 with col_logo_2:
-    # Según tu captura de GitHub, el archivo está en la raíz y se llama logo_hausmate.png
-    logo_path = "logo_hausmate.png"
-    if os.path.exists(logo_path):
-        st.image(logo_path, width=220)
+    # Usamos el nombre exacto que aparece en tu GitHub
+    logo_filename = "logo_hausmate.png"
+    if os.path.exists(logo_filename):
+        st.image(logo_filename, width=220)
     else:
+        # Fallback por si el archivo no se encuentra
         st.markdown("<h1 style='text-align: center; color: #0C2D33;'>HAUSMATE</h1>", unsafe_allow_html=True)
 
 # --- FUNCIÓN DB ---
@@ -160,7 +159,6 @@ def save_to_supabase(data: Dict[str, Any]):
         url = st.secrets["SUPABASE_URL"].strip().replace('"', '')
         key = st.secrets["SUPABASE_SERVICE_ROLE_KEY"].strip().replace('"', '')
         table = st.secrets["SUPABASE_TABLE"].strip().replace('"', '')
-        
         supabase = create_client(url, key)
         supabase.table(table).insert(data).execute()
         return True, ""
@@ -175,7 +173,7 @@ with st.form("main_form", border=False):
     c1, c2 = st.columns(2)
     with c1:
         fn = st.text_input(t["name"], placeholder="Ej: John Doe", max_chars=80)
-        wa = st.text_input(t["wa"], placeholder="+34 600 000 000", max_chars=20)
+        wa = st.text_input(t["wa"], placeholder="+34 600 000 000", max_chars=25)
         age_val = st.number_input(t["age"], 18, 99, 25)
         user_gender = st.selectbox(t["gender"], ["Mujer", "Hombre", "Otro"])
     
@@ -204,7 +202,6 @@ with st.form("main_form", border=False):
     
     st.markdown("---")
     st.markdown(f"**{t['legal_header']}**")
-    
     check_privacy = st.checkbox(t['legal_opt1'])
     check_share = st.checkbox(t['legal_opt2'])
     check_whatsapp = st.checkbox(t['legal_opt3'])
@@ -212,7 +209,6 @@ with st.form("main_form", border=False):
     with st.expander(t['view_policy']):
         st.markdown(t['policy_content'])
     
-    st.markdown("<br>", unsafe_allow_html=True)
     enviar = st.form_submit_button(t["btn"])
 st.markdown('</div>', unsafe_allow_html=True)
 
@@ -224,7 +220,6 @@ if enviar:
         now_utc = dt.datetime.now(dt.timezone.utc)
         clean_wa = "".join(filter(str.isdigit, wa))
         dedupe_key = hashlib.md5(f"{clean_wa}_{now_utc.date()}".encode()).hexdigest()
-
         extended_notes = f"LOG LEGAL {POLICY_VERSION} | {now_utc.isoformat()} | Pais: {country} | Consentimiento: OK"
 
         payload = {
