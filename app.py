@@ -61,6 +61,9 @@ st.markdown("""
         transform: translateY(-2px);
         box-shadow: 0 4px 12px rgba(0,0,0,0.2);
     }
+    div.stButton > button:first-child:active {
+        transform: translateY(0);
+    }
 
     /* 5. Asegurar que las imágenes no se desborden */
     [data-testid="stImage"] img {
@@ -75,12 +78,12 @@ st.markdown("""
         margin-bottom: 5px;
     }
 
-    /* Ocultar elementos de Streamlit */
+    /* Ocultar elementos de Streamlit para look App nativa */
     #MainMenu, footer, header {visibility: hidden;}
     
-    /* Ajuste de inputs para móviles */
+    /* Ajuste de inputs para móviles (más espacio para tocar) */
     input, select, textarea {
-        font-size: 16px !important;
+        font-size: 16px !important; /* Evita zoom automático en iOS */
     }
     </style>
     """, unsafe_allow_html=True)
@@ -93,7 +96,7 @@ col_l, col_r = st.columns([3, 1])
 with col_r:
     lang = st.radio("Lang", ["Español", "English"], horizontal=True, label_visibility="collapsed")
 
-# --- DICCIONARIO DE TRADUCCIONES (RESTAURADO COMPLETO) ---
+# --- DICCIONARIO DE TRADUCCIONES ---
 texts = {
     "Español": {
         "title": "📝 Encuentra tu HausMate",
@@ -106,7 +109,6 @@ texts = {
         "btn": "¡REGISTRARME Y BUSCAR MATCH!", 
         "error": "⚠️ Requerido: Nombre, WhatsApp y aceptar las casillas legales.",
         "success": "✅ ¡Datos guardados con éxito!", "loading": "Procesando registro...",
-        "db_error": "❌ Error al conectar con la base de datos. Inténtalo más tarde.",
         "legal_header": "⚖️ Información Legal y Privacidad",
         "legal_opt1": "Acepto la Política de Privacidad. *",
         "legal_opt2": "Autorizo compartir mi perfil con otros matches. *",
@@ -131,7 +133,6 @@ Derechos: Acceso, rectificación y supresión enviando correo a info@haus-es.com
         "btn": "REGISTER & FIND MATCH!", 
         "error": "⚠️ Required: Name, WhatsApp, and legal boxes.",
         "success": "✅ Data saved successfully.", "loading": "Processing...",
-        "db_error": "❌ Database error. Please try again later.",
         "legal_header": "⚖️ Legal Information & Privacy",
         "legal_opt1": "I accept the Privacy Policy. *",
         "legal_opt2": "I authorize sharing my profile with matches. *",
@@ -142,16 +143,20 @@ Derechos: Acceso, rectificación y supresión enviando correo a info@haus-es.com
 }
 t = texts[lang]
 
-# --- CABECERA CON LOGO (CORREGIDO) ---
+# --- CABECERA CON LOGO ---
 col_logo_1, col_logo_2, col_logo_3 = st.columns([1, 4, 1])
 with col_logo_2:
     logo_url = "https://raw.githubusercontent.com/chechoderiquer-dev/hausmate_match/main/logo_hausmate.png"
-    st.image(logo_url, width=220)
+    try:
+        st.image(logo_url, width=220)
+    except:
+        st.markdown("<h1 style='text-align: center; color: #0C2D33;'>HAUSMATE</h1>", unsafe_allow_html=True)
 
-# --- FUNCIÓN DB SEGURA ---
+# --- FUNCIÓN DB ---
 def save_to_supabase(data: Dict[str, Any]):
     try:
         from supabase import create_client
+        # Limpieza de seguridad en secretos para evitar errores de conexión
         url = st.secrets["SUPABASE_URL"].strip().replace('"', '')
         key = st.secrets["SUPABASE_SERVICE_ROLE_KEY"].strip().replace('"', '')
         table = st.secrets["SUPABASE_TABLE"].strip().replace('"', '')
@@ -160,7 +165,8 @@ def save_to_supabase(data: Dict[str, Any]):
         supabase.table(table).insert(data).execute()
         return True, ""
     except Exception as e:
-        print(f"DEBUG: {e}")
+        # Imprimimos el error en el log interno tuyo para que puedas debugear
+        print(f"Error técnico: {e}")
         return False, str(e)
 
 # --- FORMULARIO ---
@@ -168,10 +174,12 @@ st.markdown('<div class="haus-card">', unsafe_allow_html=True)
 with st.form("main_form", border=False):
     st.markdown(f"<h3 style='text-align: center; margin-top: 0;'>{t['title']}</h3>", unsafe_allow_html=True)
     
+    # Grid adaptable: 2 columnas en PC, 1 en móvil automáticamente por Streamlit
     c1, c2 = st.columns(2)
     with c1:
-        fn = st.text_input(t["name"], placeholder="Ej: John Doe", max_chars=80)
-        wa = st.text_input(t["wa"], placeholder="+34 600 000 000", max_chars=20)
+        # MEJORA DE SEGURIDAD: max_chars para evitar ataques de inyección de texto masivo
+        fn = st.text_input(t["name"], placeholder="Ej: John Doe", max_chars=100)
+        wa = st.text_input(t["wa"], placeholder="+34 600 000 000", max_chars=25)
         age_val = st.number_input(t["age"], 18, 99, 25)
         user_gender = st.selectbox(t["gender"], ["Mujer", "Hombre", "Otro"])
     
@@ -193,8 +201,10 @@ with st.form("main_form", border=False):
     with c4:
         m_out = st.date_input(t["move_out"], dt.date.today() + dt.timedelta(days=180))
         
+    # MEJORA DE SEGURIDAD: Límite de caracteres en área de texto
     notes_content = st.text_area(t["notes"], placeholder="Cuéntanos un poco sobre ti...", max_chars=1200)
     
+    # Mapa (Streamlit-Folium es responsivo por defecto con use_container_width)
     m = folium.Map(location=[40.4168, -3.7038], zoom_start=11, tiles="cartodbpositron")
     st_folium(m, height=200, use_container_width=True, key="madrid_map")
     
@@ -221,10 +231,12 @@ if enviar:
         clean_wa = "".join(filter(str.isdigit, wa))
         dedupe_key = hashlib.md5(f"{clean_wa}_{now_utc.date()}".encode()).hexdigest()
 
-        extended_notes = f"LOG LEGAL {POLICY_VERSION} | {now_utc.isoformat()} | Pais: {country} | Consentimiento: OK"
+        extended_notes = (
+            f"LOG LEGAL {POLICY_VERSION} | {now_utc.isoformat()} | Pais: {country} | Consentimiento: OK"
+        )
 
         payload = {
-            "nombre": fn.strip()[:80],
+            "nombre": fn.strip()[:100], # Sanitización básica
             "telefono": clean_wa[:15],
             "telefono_raw": wa.strip()[:25],
             "dedupe_key": dedupe_key,
@@ -251,4 +263,4 @@ if enviar:
                 if "duplicate key" in error_msg.lower():
                     st.warning("⚠️ Ya recibimos tu solicitud hoy.")
                 else:
-                    st.error(t["db_error"])
+                    st.error(f"Error: {error_msg}")
