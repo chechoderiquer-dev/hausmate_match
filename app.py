@@ -297,7 +297,7 @@ def save_to_supabase(data:Dict[str,Any]):
         key=st.secrets["SUPABASE_ANON_KEY"].strip().replace('"','')
         table=st.secrets["SUPABASE_TABLE"].strip().replace('"','')
         supabase=create_client(url,key)
-        supabase.table(table).insert(data).execute()
+        supabase.table(table).insert(data,returning="minimal").execute()
         return True,""
     except Exception as e:
         return False,str(e)
