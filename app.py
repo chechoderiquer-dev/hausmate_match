@@ -294,7 +294,7 @@ def save_to_supabase(data:Dict[str,Any]):
     try:
         from supabase import create_client
         url=st.secrets["SUPABASE_URL"].strip().replace('"','')
-    key=st.secrets["SUPABASE_ANON_KEY"].strip().replace('"','')
+        key=st.secrets["SUPABASE_ANON_KEY"].strip().replace('"','')
         table=st.secrets["SUPABASE_TABLE"].strip().replace('"','')
         supabase=create_client(url,key)
         supabase.table(table).insert(data).execute()
