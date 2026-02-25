@@ -135,7 +135,7 @@ Derechos: Acceso, rectificación y supresión enviando correo a info@haus-es.com
         "success": "✅ Data saved successfully.", "loading": "Processing...",
         "legal_header": "⚖️ Legal Information & Privacy",
         "legal_opt1": "I accept the Privacy Policy. *",
-        "legal_opt2": "I authorize sharing my profile with matches. *",
+        "legal_opt2": "I authorize sharing mi perfil with matches. *",
         "legal_opt3": "I agree to be contacted via WhatsApp. *",
         "view_policy": "View Full Policy",
         "policy_content": "Please refer to the Spanish version for the official text. By accepting, you consent to the data processing policy."
@@ -143,20 +143,20 @@ Derechos: Acceso, rectificación y supresión enviando correo a info@haus-es.com
 }
 t = texts[lang]
 
-# --- CABECERA CON LOGO ---
+# --- CABECERA CON LOGO (CORREGIDO PARA USAR ARCHIVO LOCAL) ---
 col_logo_1, col_logo_2, col_logo_3 = st.columns([1, 4, 1])
 with col_logo_2:
-    logo_url = "https://raw.githubusercontent.com/chechoderiquer-dev/hausmate_match/main/logo_hausmate.png"
-    try:
-        st.image(logo_url, width=220)
-    except:
+    # Según tu captura de GitHub, el archivo está en la raíz y se llama logo_hausmate.png
+    logo_path = "logo_hausmate.png"
+    if os.path.exists(logo_path):
+        st.image(logo_path, width=220)
+    else:
         st.markdown("<h1 style='text-align: center; color: #0C2D33;'>HAUSMATE</h1>", unsafe_allow_html=True)
 
 # --- FUNCIÓN DB ---
 def save_to_supabase(data: Dict[str, Any]):
     try:
         from supabase import create_client
-        # Limpieza de seguridad en secretos para evitar errores de conexión
         url = st.secrets["SUPABASE_URL"].strip().replace('"', '')
         key = st.secrets["SUPABASE_SERVICE_ROLE_KEY"].strip().replace('"', '')
         table = st.secrets["SUPABASE_TABLE"].strip().replace('"', '')
@@ -165,8 +165,6 @@ def save_to_supabase(data: Dict[str, Any]):
         supabase.table(table).insert(data).execute()
         return True, ""
     except Exception as e:
-        # Imprimimos el error en el log interno tuyo para que puedas debugear
-        print(f"Error técnico: {e}")
         return False, str(e)
 
 # --- FORMULARIO ---
@@ -174,12 +172,10 @@ st.markdown('<div class="haus-card">', unsafe_allow_html=True)
 with st.form("main_form", border=False):
     st.markdown(f"<h3 style='text-align: center; margin-top: 0;'>{t['title']}</h3>", unsafe_allow_html=True)
     
-    # Grid adaptable: 2 columnas en PC, 1 en móvil automáticamente por Streamlit
     c1, c2 = st.columns(2)
     with c1:
-        # MEJORA DE SEGURIDAD: max_chars para evitar ataques de inyección de texto masivo
-        fn = st.text_input(t["name"], placeholder="Ej: John Doe", max_chars=100)
-        wa = st.text_input(t["wa"], placeholder="+34 600 000 000", max_chars=25)
+        fn = st.text_input(t["name"], placeholder="Ej: John Doe", max_chars=80)
+        wa = st.text_input(t["wa"], placeholder="+34 600 000 000", max_chars=20)
         age_val = st.number_input(t["age"], 18, 99, 25)
         user_gender = st.selectbox(t["gender"], ["Mujer", "Hombre", "Otro"])
     
@@ -201,10 +197,8 @@ with st.form("main_form", border=False):
     with c4:
         m_out = st.date_input(t["move_out"], dt.date.today() + dt.timedelta(days=180))
         
-    # MEJORA DE SEGURIDAD: Límite de caracteres en área de texto
     notes_content = st.text_area(t["notes"], placeholder="Cuéntanos un poco sobre ti...", max_chars=1200)
     
-    # Mapa (Streamlit-Folium es responsivo por defecto con use_container_width)
     m = folium.Map(location=[40.4168, -3.7038], zoom_start=11, tiles="cartodbpositron")
     st_folium(m, height=200, use_container_width=True, key="madrid_map")
     
@@ -231,12 +225,10 @@ if enviar:
         clean_wa = "".join(filter(str.isdigit, wa))
         dedupe_key = hashlib.md5(f"{clean_wa}_{now_utc.date()}".encode()).hexdigest()
 
-        extended_notes = (
-            f"LOG LEGAL {POLICY_VERSION} | {now_utc.isoformat()} | Pais: {country} | Consentimiento: OK"
-        )
+        extended_notes = f"LOG LEGAL {POLICY_VERSION} | {now_utc.isoformat()} | Pais: {country} | Consentimiento: OK"
 
         payload = {
-            "nombre": fn.strip()[:100], # Sanitización básica
+            "nombre": fn.strip()[:80],
             "telefono": clean_wa[:15],
             "telefono_raw": wa.strip()[:25],
             "dedupe_key": dedupe_key,
@@ -260,7 +252,4 @@ if enviar:
                 st.balloons()
                 st.success(t["success"])
             else:
-                if "duplicate key" in error_msg.lower():
-                    st.warning("⚠️ Ya recibimos tu solicitud hoy.")
-                else:
-                    st.error(f"Error: {error_msg}")
+                st.error(f"Error: {error_msg}")
