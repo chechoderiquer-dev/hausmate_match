@@ -61,9 +61,6 @@ st.markdown("""
         transform: translateY(-2px);
         box-shadow: 0 4px 12px rgba(0,0,0,0.2);
     }
-    div.stButton > button:first-child:active {
-        transform: translateY(0);
-    }
 
     /* 5. Asegurar que las imágenes no se desborden */
     [data-testid="stImage"] img {
@@ -81,9 +78,9 @@ st.markdown("""
     /* Ocultar elementos de Streamlit para look App nativa */
     #MainMenu, footer, header {visibility: hidden;}
     
-    /* Ajuste de inputs para móviles (más espacio para tocar) */
+    /* Ajuste de inputs para móviles */
     input, select, textarea {
-        font-size: 16px !important; /* Evita zoom automático en iOS */
+        font-size: 16px !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -143,7 +140,7 @@ Derechos: Acceso, rectificación y supresión enviando correo a info@haus-es.com
 }
 t = texts[lang]
 
-# --- CABECERA CON LOGO ---
+# --- CABECERA CON LOGO (RE-ESTABLECIDO) ---
 col_logo_1, col_logo_2, col_logo_3 = st.columns([1, 4, 1])
 with col_logo_2:
     logo_url = "https://raw.githubusercontent.com/chechoderiquer-dev/hausmate_match/main/logo_hausmate.png"
@@ -171,7 +168,6 @@ st.markdown('<div class="haus-card">', unsafe_allow_html=True)
 with st.form("main_form", border=False):
     st.markdown(f"<h3 style='text-align: center; margin-top: 0;'>{t['title']}</h3>", unsafe_allow_html=True)
     
-    # Grid adaptable: 2 columnas en PC, 1 en móvil automáticamente por Streamlit
     c1, c2 = st.columns(2)
     with c1:
         fn = st.text_input(t["name"], placeholder="Ej: John Doe")
@@ -199,7 +195,6 @@ with st.form("main_form", border=False):
         
     notes_content = st.text_area(t["notes"], placeholder="Cuéntanos un poco sobre ti..." )
     
-    # Mapa (Streamlit-Folium es responsivo por defecto con use_container_width)
     m = folium.Map(location=[40.4168, -3.7038], zoom_start=11, tiles="cartodbpositron")
     st_folium(m, height=200, use_container_width=True, key="madrid_map")
     
@@ -210,6 +205,7 @@ with st.form("main_form", border=False):
     check_share = st.checkbox(t['legal_opt2'])
     check_whatsapp = st.checkbox(t['legal_opt3'])
     
+    # --- PARTE RESTAURADA: VER POLÍTICA COMPLETA ---
     with st.expander(t['view_policy']):
         st.markdown(t['policy_content'])
     
@@ -226,27 +222,15 @@ if enviar:
         clean_wa = "".join(filter(str.isdigit, wa))
         dedupe_key = hashlib.md5(f"{clean_wa}_{now_utc.date()}".encode()).hexdigest()
 
-        extended_notes = (
-            f"LOG LEGAL {POLICY_VERSION} | {now_utc.isoformat()} | Pais: {country} | Consentimiento: OK"
-        )
+        extended_notes = f"LOG LEGAL {POLICY_VERSION} | {now_utc.isoformat()} | Pais: {country} | Consentimiento: OK"
 
         payload = {
-            "nombre": fn,
-            "telefono": wa,
-            "telefono_raw": wa,
-            "dedupe_key": dedupe_key,
-            "budget": int(bg),
-            "habitaciones": rm,
-            "pref_genero": pref_gender, 
-            "edad": int(age_val),       
-            "genero": user_gender,      
+            "nombre": fn, "telefono": wa, "telefono_raw": wa, "dedupe_key": dedupe_key,
+            "budget": int(bg), "habitaciones": rm, "pref_genero": pref_gender, 
+            "edad": int(age_val), "genero": user_gender,      
             "zona": ", ".join(barrios_sel) if barrios_sel else "Sin especificar",
-            "inicio": m_in.isoformat(),
-            "fin": m_out.isoformat(),
-            "idioma": idioma_val,       
-            "Perfil": notes_content,
-            "notas": extended_notes,
-            "created_at": now_utc.isoformat()
+            "inicio": m_in.isoformat(), "fin": m_out.isoformat(), "idioma": idioma_val,       
+            "Perfil": notes_content, "notas": extended_notes, "created_at": now_utc.isoformat()
         }
         
         with st.spinner(t["loading"]):
@@ -255,7 +239,4 @@ if enviar:
                 st.balloons()
                 st.success(t["success"])
             else:
-                if "duplicate key" in error_msg.lower():
-                    st.warning("⚠️ Ya recibimos tu solicitud hoy.")
-                else:
-                    st.error(f"Error: {error_msg}")
+                st.error(f"Error: {error_msg}")
