@@ -28,7 +28,7 @@ POLICY_VERSION="v1.1-2024-05-24"
 
 col_l,col_r=st.columns([3,1])
 with col_r:
-    lang=st.radio("Lang",["Español","English"],horizontal=True,label_visibility="collapsed")
+ lang=st.radio("Lang",["Español","English"],horizontal=True,label_visibility="collapsed")
 
 texts={
 "Español":{
@@ -49,9 +49,13 @@ texts={
 "view_policy":"Ver Política Completa",
 "policy_content":"""
 **POLÍTICA DE PRIVACIDAD**
+
 Responsable: HausMate (info@haus-es.com).
+
 Finalidad: Gestión de perfiles y Matching.
+
 Legitimación: Consentimiento del usuario.
+
 Derechos: Acceso, rectificación y supresión enviando correo a info@haus-es.com.
 """
 },
@@ -71,98 +75,127 @@ Derechos: Acceso, rectificación y supresión enviando correo a info@haus-es.com
 "legal_opt2":"I authorize sharing my profile with matches. *",
 "legal_opt3":"I agree to be contacted via WhatsApp. *",
 "view_policy":"View Full Policy",
-"policy_content":"Please refer to the Spanish version for the official text."
+"policy_content":"""
+**PRIVACY POLICY**
+
+Controller: HausMate (info@haus-es.com)
+
+Purpose: Profile management and roommate matching.
+
+Legal basis: User consent.
+
+Data usage: Your information will be used exclusively to find compatible roommates.
+
+Data sharing: Your profile may be shared with potential matches only after your consent.
+
+Storage: Data is securely stored in Supabase (EU region).
+
+Rights: You may request access, rectification, or deletion at any time by emailing info@haus-es.com
+
+Retention: Data is stored for a maximum of 24 months or until deletion is requested.
+"""
 }}
 t=texts[lang]
 
 col_logo_1,col_logo_2,col_logo_3=st.columns([1,4,1])
 with col_logo_2:
-    logo_url="https://raw.githubusercontent.com/chechoderiquer-dev/hausmate_match/main/logo_hausmate.png"
-    try:
-        st.image(logo_url,width=220)
-    except:
-        st.markdown("<h1 style='text-align:center;color:#0C2D33;'>HAUSMATE</h1>",unsafe_allow_html=True)
+ logo_url="https://raw.githubusercontent.com/chechoderiquer-dev/hausmate_match/main/logo_hausmate.png"
+ try:
+  st.image(logo_url,width=220)
+ except:
+  st.markdown("<h1 style='text-align:center;color:#0C2D33;'>HAUSMATE</h1>",unsafe_allow_html=True)
 
 def save_to_supabase(data:Dict[str,Any]):
-    try:
-        from supabase import create_client
-        url=st.secrets["SUPABASE_URL"].strip().replace('"','')
-        key=st.secrets["SUPABASE_SERVICE_ROLE_KEY"].strip().replace('"','')
-        table=st.secrets["SUPABASE_TABLE"].strip().replace('"','')
-        supabase=create_client(url,key)
-        supabase.table(table).insert(data).execute()
-        return True,""
-    except Exception as e:
-        return False,str(e)
+ try:
+  from supabase import create_client
+  url=st.secrets["SUPABASE_URL"].strip().replace('"','')
+  key=st.secrets["SUPABASE_SERVICE_ROLE_KEY"].strip().replace('"','')
+  table=st.secrets["SUPABASE_TABLE"].strip().replace('"','')
+  supabase=create_client(url,key)
+  supabase.table(table).insert(data).execute()
+  return True,""
+ except Exception as e:
+  return False,str(e)
 
 st.markdown('<div class="haus-card">',unsafe_allow_html=True)
 with st.form("main_form",border=False):
-    st.markdown(f"<h3 style='text-align:center;margin-top:0;'>{t['title']}</h3>",unsafe_allow_html=True)
-    c1,c2=st.columns(2)
-    with c1:
-        fn=st.text_input(t["name"])
-        wa=st.text_input(t["wa"])
-        age_val=st.number_input(t["age"],18,99,25)
-        user_gender=st.selectbox(t["gender"],["Mujer","Hombre","Otro"])
-    with c2:
-        bg=st.number_input(t["budget"],0,5000,800,step=50)
-        rm=st.selectbox(t["rooms"],["1","2","3","4","5+"])
-        pref_gender=st.selectbox(t["lw"],["Mixto","Solo Mujeres","Solo Hombres"])
-        country=st.text_input(t["country"])
-    idioma_val=st.selectbox(t["idioma_form"],["Spanish","English","French","German","Other"])
-    distritos=["Centro","Salamanca","Chamberí","Chamartín","Retiro","Tetuán","Otros"]
-    barrios_sel=st.multiselect(t["zonas_help"],options=distritos)
-    c3,c4=st.columns(2)
-    with c3:
-        m_in=st.date_input(t["move_in"],dt.date.today())
-    with c4:
-        m_out=st.date_input(t["move_out"],dt.date.today()+dt.timedelta(days=180))
-    notes_content=st.text_area(t["notes"])
-    m=folium.Map(location=[40.4168,-3.7038],zoom_start=11,tiles="cartodbpositron")
-    st_folium(m,height=200,use_container_width=True)
-    st.markdown("---")
-    st.markdown(f"**{t['legal_header']}**")
-    check_privacy=st.checkbox(t['legal_opt1'])
-    check_share=st.checkbox(t['legal_opt2'])
-    check_whatsapp=st.checkbox(t['legal_opt3'])
-    with st.expander(t['view_policy']):
-        st.markdown(t['policy_content'])
-    enviar=st.form_submit_button(t["btn"])
+ st.markdown(f"<h3 style='text-align:center;margin-top:0;'>{t['title']}</h3>",unsafe_allow_html=True)
+ c1,c2=st.columns(2)
+ with c1:
+  fn=st.text_input(t["name"],placeholder="Ej: John Doe")
+  wa=st.text_input(t["wa"],placeholder="+34 600 000 000")
+  age_val=st.number_input(t["age"],18,99,25)
+  user_gender=st.selectbox(t["gender"],["Mujer","Hombre","Otro"])
+ with c2:
+  bg=st.number_input(t["budget"],0,5000,800,step=50)
+  rm=st.selectbox(t["rooms"],["1","2","3","4","5+"])
+  pref_gender=st.selectbox(t["lw"],["Mixto","Solo Mujeres","Solo Hombres"])
+  country=st.text_input(t["country"],"España" if lang=="Español" else "Spain")
+
+ idioma_val=st.selectbox(t["idioma_form"],["Spanish","English","French","German","Other"])
+
+ st.write(t["zonas"])
+ distritos=["Centro","Arganzuela","Retiro","Salamanca","Chamartín","Tetuán","Chamberí","Fuencarral-El Pardo","Moncloa-Aravaca","Latina","Carabanchel","Usera","Puente de Vallecas","Moratalaz","Ciudad Lineal","Hortaleza","Villaverde","Villa de Vallecas","Vicálvaro","San Blas-Canillejas","Barajas","Otros"]
+ barrios_sel=st.multiselect(t["zonas_help"],options=distritos,label_visibility="collapsed")
+
+ c3,c4=st.columns(2)
+ with c3:
+  m_in=st.date_input(t["move_in"],dt.date.today())
+ with c4:
+  m_out=st.date_input(t["move_out"],dt.date.today()+dt.timedelta(days=180))
+
+ notes_content=st.text_area(t["notes"],placeholder="Cuéntanos un poco sobre ti...")
+
+ m=folium.Map(location=[40.4168,-3.7038],zoom_start=11,tiles="cartodbpositron")
+ st_folium(m,height=200,use_container_width=True,key="madrid_map")
+
+ st.markdown("---")
+ st.markdown(f"**{t['legal_header']}**")
+
+ check_privacy=st.checkbox(t['legal_opt1'])
+ check_share=st.checkbox(t['legal_opt2'])
+ check_whatsapp=st.checkbox(t['legal_opt3'])
+
+ with st.expander(t['view_policy']):
+  st.markdown(t['policy_content'])
+
+ st.markdown("<br>",unsafe_allow_html=True)
+ enviar=st.form_submit_button(t["btn"])
 st.markdown('</div>',unsafe_allow_html=True)
 
 if enviar:
-    if not fn or not wa or not check_privacy or not check_share or not check_whatsapp:
-        st.error(t["error"])
+ if not fn or not wa or not check_privacy or not check_share or not check_whatsapp:
+  st.error(t["error"])
+ else:
+  now_utc=dt.datetime.now(dt.timezone.utc)
+  clean_wa="".join(filter(str.isdigit,wa))
+  dedupe_key=hashlib.md5(f"{clean_wa}_{now_utc.date()}".encode()).hexdigest()
+  extended_notes=f"LOG LEGAL {POLICY_VERSION} | {now_utc.isoformat()} | Pais: {country} | Consentimiento: OK"
+  payload={
+   "nombre":fn,
+   "telefono":wa,
+   "telefono_raw":wa,
+   "dedupe_key":dedupe_key,
+   "budget":int(bg),
+   "habitaciones":rm,
+   "pref_genero":pref_gender,
+   "edad":int(age_val),
+   "genero":user_gender,
+   "zona":", ".join(barrios_sel) if barrios_sel else "Sin especificar",
+   "inicio":m_in.isoformat(),
+   "fin":m_out.isoformat(),
+   "idioma":idioma_val,
+   "Perfil":notes_content,
+   "notas":extended_notes,
+   "created_at":now_utc.isoformat()
+  }
+  with st.spinner(t["loading"]):
+   exito,error_msg=save_to_supabase(payload)
+   if exito:
+    st.balloons()
+    st.success(t["success"])
+   else:
+    if "duplicate key" in error_msg.lower():
+     st.warning("⚠️ Ya recibimos tu solicitud hoy.")
     else:
-        now_utc=dt.datetime.now(dt.timezone.utc)
-        clean_wa="".join(filter(str.isdigit,wa))
-        dedupe_key=hashlib.md5(f"{clean_wa}_{now_utc.date()}".encode()).hexdigest()
-        extended_notes=f"LOG LEGAL {POLICY_VERSION}|{now_utc.isoformat()}|Pais:{country}|Consentimiento:OK"
-        payload={
-        "nombre":fn,
-        "telefono":wa,
-        "telefono_raw":wa,
-        "dedupe_key":dedupe_key,
-        "budget":int(bg),
-        "habitaciones":rm,
-        "pref_genero":pref_gender,
-        "edad":int(age_val),
-        "genero":user_gender,
-        "zona":", ".join(barrios_sel) if barrios_sel else "Sin especificar",
-        "inicio":m_in.isoformat(),
-        "fin":m_out.isoformat(),
-        "idioma":idioma_val,
-        "Perfil":notes_content,
-        "notas":extended_notes,
-        "created_at":now_utc.isoformat()
-        }
-        with st.spinner(t["loading"]):
-            exito,error_msg=save_to_supabase(payload)
-            if exito:
-                st.balloons()
-                st.success(t["success"])
-            else:
-                if "duplicate key" in error_msg.lower():
-                    st.warning("⚠️ Ya recibimos tu solicitud hoy.")
-                else:
-                    st.error(f"Error:{error_msg}")
+     st.error(f"Error: {error_msg}")
