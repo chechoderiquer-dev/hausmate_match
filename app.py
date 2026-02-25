@@ -123,7 +123,7 @@ Los datos serán conservados durante un máximo de 24 meses desde su registro, s
 
 6. Transferencias internacionales
 
-HausMate utiliza proveedores tecnológicos que cumplen con el RGPD y almacenan los datos en servidores seguros ubicados dentro de la Unión Europea o bajo mecanismos legales válidos.
+HausMate utiliza Supabase como proveedor tecnológico, el cual actúa como Encargado del Tratamiento conforme al artículo 28 del Reglamento (UE) 2016/679 (RGPD). Los datos se almacenan en servidores seguros ubicados dentro de la Unión Europea (Irlanda), garantizando el cumplimiento de la normativa europea de protección de datos.
 
 7. Derechos del usuario
 
@@ -248,7 +248,7 @@ Data will be stored for a maximum period of 24 months unless deletion is request
 
 6. International transfers
 
-HausMate uses GDPR-compliant providers with secure servers located within the European Union or under valid legal safeguards.
+HausMate uses Supabase as a technology provider, acting as a Data Processor under Article 28 GDPR. Data is stored on secure servers located within the European Union (Ireland), ensuring compliance with EU data protection laws.
 
 7. User rights
 
@@ -372,7 +372,13 @@ if enviar:
             "idioma":idioma_val,
             "Perfil":notes_content,
             "notas":extended_notes,
-            "created_at":now_utc.isoformat()
+            "created_at":now_utc.isoformat(),
+            "policy_version":POLICY_VERSION,
+            "consent_timestamp":now_utc.isoformat(),
+            "consent_language":lang,
+            "consent_privacy":check_privacy,
+            "consent_share":check_share,
+            "consent_whatsapp":check_whatsapp
         }
 
         with st.spinner(t["loading"]):
