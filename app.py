@@ -1,86 +1,168 @@
-import streamlit as st
+import os
 import datetime as dt
-from supabase import create_client
+import hashlib
+from typing import Dict,Any
+import streamlit as st
+import folium
+from streamlit_folium import st_folium
 
-# 1. Configuración de página
-st.set_page_config(page_title="HausMate Match", page_icon="🏠", layout="centered")
+st.set_page_config(page_title="HausMate Match",page_icon="🏠",layout="centered")
 
-# 2. Estilo Visual (Fondo y tarjetas)
 st.markdown("""
-    <style>
-    .stApp { background: linear-gradient(180deg, #7FBBC2 0%, #D9F1F3 60%, #ffffff 100%); }
-    .haus-card { 
-        background: white; padding: 2rem; border-radius: 20px; 
-        box-shadow: 0 10px 25px rgba(0,0,0,0.1); color: #0C2D33; 
-    }
-    div.stButton > button:first-child {
-        width: 100%; background-color: #0C2D33 !important; color: white !important;
-        font-weight: bold; border-radius: 12px; height: 3.5em; border: none;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+<style>
+.stApp{background:linear-gradient(180deg,#7FBBC2 0%,#D9F1F3 60%,#ffffff 100%);}
+.block-container{padding-top:1.5rem!important;padding-left:1rem!important;padding-right:1rem!important;max-width:800px!important;}
+.haus-card{background:white;padding:1.5rem;border-radius:20px;box-shadow:0 10px 25px rgba(0,0,0,0.1);margin-top:10px;color:#0C2D33;width:100%;box-sizing:border-box;}
+@media(min-width:768px){.haus-card{padding:2.5rem;}}
+div.stButton>button:first-child{width:100%;background-color:#0C2D33!important;color:white!important;font-weight:bold;border-radius:12px;height:3.8em;border:none;transition:all 0.3s ease;font-size:16px;}
+div.stButton>button:first-child:hover{background-color:#164a54!important;transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,0.2);}
+div.stButton>button:first-child:active{transform:translateY(0);}
+[data-testid="stImage"] img{max-width:100%;height:auto;}
+[data-testid="stImage"]{display:flex;justify-content:center;margin-bottom:5px;}
+#MainMenu,footer,header{visibility:hidden;}
+input,select,textarea{font-size:16px!important;}
+</style>
+""",unsafe_allow_html=True)
 
-# 3. Función de conexión a Supabase
-def save_to_supabase(data):
+POLICY_VERSION="v1.1-2024-05-24"
+
+col_l,col_r=st.columns([3,1])
+with col_r:
+    lang=st.radio("Lang",["Español","English"],horizontal=True,label_visibility="collapsed")
+
+texts={
+"Español":{
+"title":"📝 Encuentra tu HausMate",
+"name":"Nombre completo *","wa":"WhatsApp (+34) *","age":"Edad",
+"gender":"Tu género","lw":"Preferencia de convivencia","budget":"Presupuesto Máximo (€)",
+"rooms":"Habitaciones","country":"País de origen",
+"idioma_form":"Idioma principal","zonas":"📍 Zonas preferidas",
+"zonas_help":"Selecciona los distritos","move_in":"¿Cuándo entras?",
+"move_out":"¿Hasta cuándo?","notes":"Sobre ti (trabajo, hobbies...)",
+"btn":"¡REGISTRARME Y BUSCAR MATCH!",
+"error":"⚠️ Requerido: Nombre, WhatsApp y aceptar las casillas legales.",
+"success":"✅ ¡Datos guardados con éxito!","loading":"Procesando registro...",
+"legal_header":"⚖️ Información Legal y Privacidad",
+"legal_opt1":"Acepto la Política de Privacidad. *",
+"legal_opt2":"Autorizo compartir mi perfil con otros matches. *",
+"legal_opt3":"Acepto contacto por WhatsApp. *",
+"view_policy":"Ver Política Completa",
+"policy_content":"""
+**POLÍTICA DE PRIVACIDAD**
+Responsable: HausMate (info@haus-es.com).
+Finalidad: Gestión de perfiles y Matching.
+Legitimación: Consentimiento del usuario.
+Derechos: Acceso, rectificación y supresión enviando correo a info@haus-es.com.
+"""
+},
+"English":{
+"title":"📝 Find your HausMate",
+"name":"Full Name *","wa":"WhatsApp (with +) *","age":"Age",
+"gender":"Your gender","lw":"Living preference","budget":"Max Budget (€)",
+"rooms":"Rooms","country":"Country of origin",
+"idioma_form":"Main language","zonas":"📍 Preferred areas",
+"zonas_help":"Select districts","move_in":"Move-in date",
+"move_out":"Move-out date","notes":"About you (work, hobbies...)",
+"btn":"REGISTER & FIND MATCH!",
+"error":"⚠️ Required: Name, WhatsApp, and legal boxes.",
+"success":"✅ Data saved successfully.","loading":"Processing...",
+"legal_header":"⚖️ Legal Information & Privacy",
+"legal_opt1":"I accept the Privacy Policy. *",
+"legal_opt2":"I authorize sharing my profile with matches. *",
+"legal_opt3":"I agree to be contacted via WhatsApp. *",
+"view_policy":"View Full Policy",
+"policy_content":"Please refer to the Spanish version for the official text."
+}}
+t=texts[lang]
+
+col_logo_1,col_logo_2,col_logo_3=st.columns([1,4,1])
+with col_logo_2:
+    logo_url="https://raw.githubusercontent.com/chechoderiquer-dev/hausmate_match/main/logo_hausmate.png"
     try:
-        url = st.secrets["SUPABASE_URL"]
-        key = st.secrets["SUPABASE_SERVICE_ROLE_KEY"]
-        table_name = st.secrets["SUPABASE_TABLE"]
-        supabase = create_client(url, key)
-        supabase.table(table_name).insert(data).execute()
-        return True, ""
+        st.image(logo_url,width=220)
+    except:
+        st.markdown("<h1 style='text-align:center;color:#0C2D33;'>HAUSMATE</h1>",unsafe_allow_html=True)
+
+def save_to_supabase(data:Dict[str,Any]):
+    try:
+        from supabase import create_client
+        url=st.secrets["SUPABASE_URL"].strip().replace('"','')
+        key=st.secrets["SUPABASE_SERVICE_ROLE_KEY"].strip().replace('"','')
+        table=st.secrets["SUPABASE_TABLE"].strip().replace('"','')
+        supabase=create_client(url,key)
+        supabase.table(table).insert(data).execute()
+        return True,""
     except Exception as e:
-        return False, str(e)
+        return False,str(e)
 
-# 4. Interfaz del Formulario
-st.image("https://raw.githubusercontent.com/chechoderiquer-dev/hausmate_match/main/logo_hausmate.png", width=200)
-
-st.markdown('<div class="haus-card">', unsafe_allow_html=True)
-st.subheader("📝 Encuentra tu HausMate")
-
-with st.form("main_form", border=False):
-    col1, col2 = st.columns(2)
-    with col1:
-        nombre = st.text_input("Nombre completo *")
-        whatsapp = st.text_input("WhatsApp *")
-        edad = st.number_input("Edad", 18, 99, 25)
-    with col2:
-        presupuesto = st.number_input("Presupuesto Máximo (€)", value=800)
-        habitaciones = st.selectbox("Habitaciones", ["1", "2", "3", "4+"])
-        preferencia = st.selectbox("Preferencia", ["Mixto", "Solo Mujeres", "Solo Hombres"])
-    
-    zonas = st.multiselect("📍 Zonas preferidas", ["Centro", "Chamberí", "Salamanca", "Tetuán", "Otros"])
-    perfil = st.text_area("Sobre ti (trabajo, hobbies, etc.)")
-    
+st.markdown('<div class="haus-card">',unsafe_allow_html=True)
+with st.form("main_form",border=False):
+    st.markdown(f"<h3 style='text-align:center;margin-top:0;'>{t['title']}</h3>",unsafe_allow_html=True)
+    c1,c2=st.columns(2)
+    with c1:
+        fn=st.text_input(t["name"])
+        wa=st.text_input(t["wa"])
+        age_val=st.number_input(t["age"],18,99,25)
+        user_gender=st.selectbox(t["gender"],["Mujer","Hombre","Otro"])
+    with c2:
+        bg=st.number_input(t["budget"],0,5000,800,step=50)
+        rm=st.selectbox(t["rooms"],["1","2","3","4","5+"])
+        pref_gender=st.selectbox(t["lw"],["Mixto","Solo Mujeres","Solo Hombres"])
+        country=st.text_input(t["country"])
+    idioma_val=st.selectbox(t["idioma_form"],["Spanish","English","French","German","Other"])
+    distritos=["Centro","Salamanca","Chamberí","Chamartín","Retiro","Tetuán","Otros"]
+    barrios_sel=st.multiselect(t["zonas_help"],options=distritos)
+    c3,c4=st.columns(2)
+    with c3:
+        m_in=st.date_input(t["move_in"],dt.date.today())
+    with c4:
+        m_out=st.date_input(t["move_out"],dt.date.today()+dt.timedelta(days=180))
+    notes_content=st.text_area(t["notes"])
+    m=folium.Map(location=[40.4168,-3.7038],zoom_start=11,tiles="cartodbpositron")
+    st_folium(m,height=200,use_container_width=True)
     st.markdown("---")
-    c1 = st.checkbox("Acepto la Política de Privacidad *")
-    c2 = st.checkbox("Autorizo compartir mi perfil *")
-    
-    submit = st.form_submit_button("¡REGISTRARME Y BUSCAR MATCH!")
-st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown(f"**{t['legal_header']}**")
+    check_privacy=st.checkbox(t['legal_opt1'])
+    check_share=st.checkbox(t['legal_opt2'])
+    check_whatsapp=st.checkbox(t['legal_opt3'])
+    with st.expander(t['view_policy']):
+        st.markdown(t['policy_content'])
+    enviar=st.form_submit_button(t["btn"])
+st.markdown('</div>',unsafe_allow_html=True)
 
-# 5. Lógica de guardado
-if submit:
-    if not nombre or not whatsapp or not c1:
-        st.error("⚠️ Rellena los campos obligatorios.")
+if enviar:
+    if not fn or not wa or not check_privacy or not check_share or not check_whatsapp:
+        st.error(t["error"])
     else:
-        # Los nombres de las llaves deben coincidir con tu tabla en image_168703.png
-        payload = {
-            "full_name": nombre,
-            "whatsapp": whatsapp,
-            "age": int(edad),
-            "budget": int(presupuesto),
-            "rooms": habitaciones,
-            "living_with": preferencia,
-            "barrios": zonas,
-            "notes": perfil,
-            "created_at": dt.datetime.now().isoformat()
+        now_utc=dt.datetime.now(dt.timezone.utc)
+        clean_wa="".join(filter(str.isdigit,wa))
+        dedupe_key=hashlib.md5(f"{clean_wa}_{now_utc.date()}".encode()).hexdigest()
+        extended_notes=f"LOG LEGAL {POLICY_VERSION}|{now_utc.isoformat()}|Pais:{country}|Consentimiento:OK"
+        payload={
+        "nombre":fn,
+        "telefono":wa,
+        "telefono_raw":wa,
+        "dedupe_key":dedupe_key,
+        "budget":int(bg),
+        "habitaciones":rm,
+        "pref_genero":pref_gender,
+        "edad":int(age_val),
+        "genero":user_gender,
+        "zona":", ".join(barrios_sel) if barrios_sel else "Sin especificar",
+        "inicio":m_in.isoformat(),
+        "fin":m_out.isoformat(),
+        "idioma":idioma_val,
+        "Perfil":notes_content,
+        "notas":extended_notes,
+        "created_at":now_utc.isoformat()
         }
-        
-        with st.spinner("Conectando con HausMate..."):
-            success, error_msg = save_to_supabase(payload)
-            if success:
+        with st.spinner(t["loading"]):
+            exito,error_msg=save_to_supabase(payload)
+            if exito:
                 st.balloons()
-                st.success("✅ ¡Registro completado! Te contactaremos pronto.")
+                st.success(t["success"])
             else:
-                st.error(f"Error: {error_msg}")
+                if "duplicate key" in error_msg.lower():
+                    st.warning("⚠️ Ya recibimos tu solicitud hoy.")
+                else:
+                    st.error(f"Error:{error_msg}")
