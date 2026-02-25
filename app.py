@@ -61,9 +61,6 @@ st.markdown("""
         transform: translateY(-2px);
         box-shadow: 0 4px 12px rgba(0,0,0,0.2);
     }
-    div.stButton > button:first-child:active {
-        transform: translateY(0);
-    }
 
     /* 5. Asegurar que las imágenes no se desborden */
     [data-testid="stImage"] img {
@@ -78,12 +75,12 @@ st.markdown("""
         margin-bottom: 5px;
     }
 
-    /* Ocultar elementos de Streamlit para look App nativa */
+    /* Ocultar elementos de Streamlit */
     #MainMenu, footer, header {visibility: hidden;}
     
-    /* Ajuste de inputs para móviles (más espacio para tocar) */
+    /* Ajuste de inputs para móviles */
     input, select, textarea {
-        font-size: 16px !important; /* Evita zoom automático en iOS */
+        font-size: 16px !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -96,7 +93,7 @@ col_l, col_r = st.columns([3, 1])
 with col_r:
     lang = st.radio("Lang", ["Español", "English"], horizontal=True, label_visibility="collapsed")
 
-# --- DICCIONARIO DE TRADUCCIONES ---
+# --- DICCIONARIO DE TRADUCCIONES (RESTAURADO COMPLETO) ---
 texts = {
     "Español": {
         "title": "📝 Encuentra tu HausMate",
@@ -145,20 +142,16 @@ Derechos: Acceso, rectificación y supresión enviando correo a info@haus-es.com
 }
 t = texts[lang]
 
-# --- CABECERA CON LOGO ---
+# --- CABECERA CON LOGO (CORREGIDO) ---
 col_logo_1, col_logo_2, col_logo_3 = st.columns([1, 4, 1])
 with col_logo_2:
     logo_url = "https://raw.githubusercontent.com/chechoderiquer-dev/hausmate_match/main/logo_hausmate.png"
-    try:
-        st.image(logo_url, width=220)
-    except:
-        st.markdown("<h1 style='text-align: center; color: #0C2D33;'>HAUSMATE</h1>", unsafe_allow_html=True)
+    st.image(logo_url, width=220)
 
 # --- FUNCIÓN DB SEGURA ---
 def save_to_supabase(data: Dict[str, Any]):
     try:
         from supabase import create_client
-        # Limpieza de espacios y comillas en secretos por seguridad
         url = st.secrets["SUPABASE_URL"].strip().replace('"', '')
         key = st.secrets["SUPABASE_SERVICE_ROLE_KEY"].strip().replace('"', '')
         table = st.secrets["SUPABASE_TABLE"].strip().replace('"', '')
@@ -167,8 +160,7 @@ def save_to_supabase(data: Dict[str, Any]):
         supabase.table(table).insert(data).execute()
         return True, ""
     except Exception as e:
-        # Error técnico solo visible en tus logs privados de Streamlit
-        print(f"DEBUG: Supabase insertion failed: {e}")
+        print(f"DEBUG: {e}")
         return False, str(e)
 
 # --- FORMULARIO ---
@@ -178,7 +170,6 @@ with st.form("main_form", border=False):
     
     c1, c2 = st.columns(2)
     with c1:
-        # Mejora de seguridad: max_chars
         fn = st.text_input(t["name"], placeholder="Ej: John Doe", max_chars=80)
         wa = st.text_input(t["wa"], placeholder="+34 600 000 000", max_chars=20)
         age_val = st.number_input(t["age"], 18, 99, 25)
@@ -202,7 +193,6 @@ with st.form("main_form", border=False):
     with c4:
         m_out = st.date_input(t["move_out"], dt.date.today() + dt.timedelta(days=180))
         
-    # Mejora de seguridad: limite de caracteres en área de texto
     notes_content = st.text_area(t["notes"], placeholder="Cuéntanos un poco sobre ti...", max_chars=1200)
     
     m = folium.Map(location=[40.4168, -3.7038], zoom_start=11, tiles="cartodbpositron")
@@ -231,9 +221,7 @@ if enviar:
         clean_wa = "".join(filter(str.isdigit, wa))
         dedupe_key = hashlib.md5(f"{clean_wa}_{now_utc.date()}".encode()).hexdigest()
 
-        extended_notes = (
-            f"LOG LEGAL {POLICY_VERSION} | {now_utc.isoformat()} | Pais: {country} | Consentimiento: OK"
-        )
+        extended_notes = f"LOG LEGAL {POLICY_VERSION} | {now_utc.isoformat()} | Pais: {country} | Consentimiento: OK"
 
         payload = {
             "nombre": fn.strip()[:80],
@@ -263,5 +251,4 @@ if enviar:
                 if "duplicate key" in error_msg.lower():
                     st.warning("⚠️ Ya recibimos tu solicitud hoy.")
                 else:
-                    # Mensaje genérico al usuario, detalle técnico al log
                     st.error(t["db_error"])
