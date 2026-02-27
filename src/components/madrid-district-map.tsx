@@ -268,6 +268,8 @@ export function MadridDistrictMap({
       zoom: 10,
       scrollWheelZoom: true,
       zoomControl: true,
+      minZoom: 10,
+      maxZoom: 14,
       maxBounds: [
         [40.25, -3.95],
         [40.67, -3.35],

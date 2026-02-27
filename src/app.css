@@ -294,6 +294,11 @@
 .area-controls {
   display: grid;
   gap: 1rem;
+  order: 2;
+}
+
+.district-map-card {
+  order: 1;
 }
 
 .district-group {
@@ -700,6 +705,14 @@
   .area-layout {
     grid-template-columns: minmax(16rem, 0.85fr) minmax(24rem, 1.15fr);
     align-items: start;
+  }
+
+  .area-controls {
+    order: 1;
+  }
+
+  .district-map-card {
+    order: 2;
   }
 
   .trust-strip-grid {

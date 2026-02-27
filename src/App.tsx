@@ -129,6 +129,10 @@ export default function App() {
     stepCompletion[2] &&
     !submitting;
 
+  const canContinue =
+    (step === 0 && stepCompletion[0]) ||
+    (step === 1 && stepCompletion[1]);
+
   const updateField = <Key extends keyof FormState>(
     key: Key,
     value: FormState[Key],
@@ -801,7 +805,7 @@ export default function App() {
                   </div>
 
                   {step < 2 ? (
-                    <Button onClick={goToNextStep} type="button">
+                    <Button disabled={!canContinue} onClick={goToNextStep} type="button">
                       {content.nextStep}
                     </Button>
                   ) : (
@@ -845,7 +849,7 @@ export default function App() {
             <span className="sticky-title">{content.stepNames[step]}</span>
           </div>
           {step < 2 ? (
-            <Button onClick={goToNextStep} type="button">
+            <Button disabled={!canContinue} onClick={goToNextStep} type="button">
               {content.stickyCta}
             </Button>
           ) : (
