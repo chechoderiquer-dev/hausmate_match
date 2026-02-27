@@ -1,7 +1,0 @@
-streamlit
-pandas
-openpyxl
-phonenumbers
-folium
-streamlit-folium
-supabase
