@@ -2,6 +2,18 @@
   min-height: 100vh;
   overflow: hidden;
   color: var(--color-text-primary);
+  position: relative;
+}
+
+.app-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background:
+    radial-gradient(circle at 18% 10%, rgba(127, 187, 194, 0.58), transparent 30%),
+    radial-gradient(circle at 82% 0%, rgba(95, 186, 192, 0.18), transparent 22%),
+    linear-gradient(180deg, #d6ebee 0%, #eef6f7 42%, #ffffff 100%);
 }
 
 .app-container {
@@ -17,8 +29,10 @@
 .app-glow {
   pointer-events: none;
   position: absolute;
-  inset-inline: 0;
-  top: 0;
+  left: 50%;
+  top: -2rem;
+  width: 100vw;
+  transform: translateX(-50%);
   z-index: -1;
   height: min(42rem, 58vw);
   background:
