@@ -276,6 +276,16 @@
   font-weight: 500;
 }
 
+.field-hint {
+  color: var(--color-danger-text);
+  font-size: var(--text-caption);
+}
+
+.required-asterisk {
+  margin-left: 0.2rem;
+  color: var(--color-danger-text);
+}
+
 .district-section {
   display: grid;
   gap: 0.9rem;
@@ -409,13 +419,15 @@
 
 .district-map-tooltip {
   border: 0;
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.78);
   color: var(--color-text-primary);
-  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.08);
-  font-size: 0.62rem;
-  font-weight: 600;
-  padding: 0.15rem 0.35rem;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
+  font-size: 0.76rem;
+  font-weight: 700;
+  padding: 0.08rem 0.32rem;
+  border-radius: 0.5rem;
   white-space: nowrap;
+  text-shadow: none;
 }
 
 .district-map-tooltip::before {
@@ -423,7 +435,7 @@
 }
 
 .district-map-tooltip-selected {
-  background: rgba(15, 23, 42, 0.9);
+  background: rgba(51, 65, 85, 0.84);
   color: var(--color-text-inverse);
 }
 
@@ -556,6 +568,12 @@
 .action-notice {
   flex: 1 1 auto;
   margin: 0;
+}
+
+.action-hint {
+  flex: 1 1 auto;
+  color: var(--color-danger-text);
+  font-size: var(--text-body);
 }
 
 .completion-card {

@@ -26,7 +26,7 @@ interface FormState {
   whatsapp: string;
   age: number;
   gender: string;
-  budget: number;
+  budget: string;
   rooms: string;
   livingPreference: string;
   country: string;
@@ -66,8 +66,8 @@ function getDefaultForm(language: Language): FormState {
     whatsapp: "",
     age: 25,
     gender: set.genderOptions[0],
-    budget: 800,
-    rooms: set.roomOptions[0],
+    budget: "",
+    rooms: "",
     livingPreference: set.livingOptions[0],
     country: set.countryDefault,
     primaryLanguage: set.languageOptions[0].value,
@@ -95,6 +95,7 @@ export default function App() {
   const [notice, setNotice] = useState<Notice | null>(null);
   const [districtQuery, setDistrictQuery] = useState("");
   const [isComplete, setIsComplete] = useState(false);
+  const [continueAttempted, setContinueAttempted] = useState(false);
   const formRef = useRef<HTMLElement | null>(null);
 
   const content = useMemo(() => copy[language], [language]);
@@ -115,7 +116,11 @@ export default function App() {
   const stepCompletion = useMemo(
     () => [
       Boolean(form.fullName.trim() && form.whatsapp.trim()),
-      Boolean(form.budget > 0 && form.districts.length > 0),
+      Boolean(
+        form.budget &&
+          Number(form.budget) > 0 &&
+          true,
+      ),
       Boolean(
         form.consentPrivacy && form.consentShare && form.consentWhatsapp,
       ),
@@ -174,6 +179,7 @@ export default function App() {
     setNotice(null);
     setDistrictQuery("");
     setIsComplete(false);
+    setContinueAttempted(false);
   };
 
   const switchLanguage = (nextLanguage: Language) => {
@@ -200,6 +206,7 @@ export default function App() {
       consentWhatsapp: current.consentWhatsapp,
     }));
     setNotice(null);
+    setContinueAttempted(false);
   };
 
   const canAccessStep = (targetStep: StepIndex) => {
@@ -228,8 +235,7 @@ export default function App() {
 
     if (currentStep === 1) {
       const missing = [
-        form.budget <= 0 ? content.budget : null,
-        form.districts.length === 0 ? content.areas : null,
+        !form.budget || Number(form.budget) <= 0 ? content.budget : null,
       ].filter(Boolean) as string[];
 
       return formatMissingMessage(missing);
@@ -244,16 +250,35 @@ export default function App() {
     return formatMissingMessage(missing);
   };
 
+  const inlineStepHint = useMemo(() => {
+    if (step === 0 && continueAttempted && !stepCompletion[0]) {
+      return getContinueErrorMessage(0);
+    }
+
+    if (step === 1 && continueAttempted && !stepCompletion[1]) {
+      return getContinueErrorMessage(1);
+    }
+
+    return null;
+  }, [
+    continueAttempted,
+    step,
+    stepCompletion,
+  ]);
+
   const navigateToStep = (targetStep: StepIndex) => {
     if (targetStep === step) return;
     if (targetStep < step || canAccessStep(targetStep)) {
       setStep(targetStep);
       setNotice(null);
+      setContinueAttempted(false);
       scrollToForm();
     }
   };
 
   const goToNextStep = () => {
+    setContinueAttempted(true);
+
     if (step === 0 && !stepCompletion[0]) {
       setNotice({ tone: "error", message: getContinueErrorMessage(0) });
       return;
@@ -265,14 +290,26 @@ export default function App() {
     }
 
     setNotice(null);
+    setContinueAttempted(false);
     setStep((current) => (current < 2 ? ((current + 1) as StepIndex) : current));
     scrollToForm();
   };
 
   const goToPreviousStep = () => {
     setNotice(null);
+    setContinueAttempted(false);
     setStep((current) => (current > 0 ? ((current - 1) as StepIndex) : current));
     scrollToForm();
+  };
+
+  const handleContinueAction = () => {
+    if (!canContinue) {
+      setContinueAttempted(true);
+      setNotice({ tone: "error", message: getContinueErrorMessage(step) });
+      return;
+    }
+
+    goToNextStep();
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -282,8 +319,7 @@ export default function App() {
       const missing = [
         !form.fullName.trim() ? content.name.replace(" *", "") : null,
         !form.whatsapp.trim() ? content.wa.replace(" *", "") : null,
-        form.budget <= 0 ? content.budget : null,
-        form.districts.length === 0 ? content.areas : null,
+        !form.budget || Number(form.budget) <= 0 ? content.budget : null,
         !form.consentPrivacy ? content.legalOpt1.replace(" *", "") : null,
         !form.consentShare ? content.legalOpt2.replace(" *", "") : null,
         !form.consentWhatsapp ? content.legalOpt3.replace(" *", "") : null,
@@ -555,18 +591,26 @@ export default function App() {
                   <>
                     <div className="form-grid">
                       <div className="form-field">
-                        <Label htmlFor="budget">{content.budget}</Label>
+                        <Label htmlFor="budget">
+                          {content.budget}
+                          {continueAttempted && (!form.budget || Number(form.budget) <= 0) ? (
+                            <span className="required-asterisk">*</span>
+                          ) : null}
+                        </Label>
                         <Input
                           id="budget"
                           min={0}
                           onChange={(event) =>
-                            updateField("budget", Number(event.target.value))
+                            updateField("budget", event.target.value)
                           }
                           placeholder={content.budgetPlaceholder}
                           step={50}
                           type="number"
                           value={form.budget}
                         />
+                        {continueAttempted && (!form.budget || Number(form.budget) <= 0) ? (
+                          <p className="field-hint">{content.budget.replace(" *", "")}</p>
+                        ) : null}
                       </div>
                       <div className="form-field">
                         <Label htmlFor="rooms">{content.rooms}</Label>
@@ -575,6 +619,9 @@ export default function App() {
                           onChange={(event) => updateField("rooms", event.target.value)}
                           value={form.rooms}
                         >
+                          <option value="" disabled>
+                            -
+                          </option>
                           {content.roomOptions.map((option) => (
                             <option key={option} value={option}>
                               {option}
@@ -801,11 +848,18 @@ export default function App() {
                       >
                         {notice.message}
                       </div>
+                    ) : inlineStepHint ? (
+                      <div className="action-hint">{inlineStepHint}</div>
                     ) : null}
                   </div>
 
                   {step < 2 ? (
-                    <Button disabled={!canContinue} onClick={goToNextStep} type="button">
+                    <Button
+                      aria-disabled={!canContinue}
+                      className={!canContinue ? "opacity-60 cursor-not-allowed" : undefined}
+                      onClick={handleContinueAction}
+                      type="button"
+                    >
                       {content.nextStep}
                     </Button>
                   ) : (
@@ -849,7 +903,12 @@ export default function App() {
             <span className="sticky-title">{content.stepNames[step]}</span>
           </div>
           {step < 2 ? (
-            <Button disabled={!canContinue} onClick={goToNextStep} type="button">
+            <Button
+              aria-disabled={!canContinue}
+              className={!canContinue ? "opacity-60 cursor-not-allowed" : undefined}
+              onClick={handleContinueAction}
+              type="button"
+            >
               {content.stickyCta}
             </Button>
           ) : (

@@ -232,7 +232,8 @@ export function MadridDistrictMap({
   const [geoJsonData, setGeoJsonData] = useState<GeoJsonCollection | null>(null);
   const mapElementRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
-  const overlayLayerRef = useRef<L.LayerGroup | null>(null);
+  const defaultLayerRef = useRef<L.LayerGroup | null>(null);
+  const selectedLayerRef = useRef<L.LayerGroup | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -291,77 +292,41 @@ export function MadridDistrictMap({
     );
 
     mapRef.current = map;
-    overlayLayerRef.current = L.layerGroup().addTo(map);
+    defaultLayerRef.current = L.layerGroup().addTo(map);
+    selectedLayerRef.current = L.layerGroup().addTo(map);
 
     return () => {
       map.remove();
       mapRef.current = null;
-      overlayLayerRef.current = null;
+      defaultLayerRef.current = null;
+      selectedLayerRef.current = null;
     };
   }, []);
 
   useEffect(() => {
     const map = mapRef.current;
-    const overlayLayer = overlayLayerRef.current;
-    if (!map || !overlayLayer) return;
+    const defaultLayer = defaultLayerRef.current;
+    const selectedLayer = selectedLayerRef.current;
+    if (!map || !defaultLayer || !selectedLayer) return;
 
-    overlayLayer.clearLayers();
+    defaultLayer.clearLayers();
+    selectedLayer.clearLayers();
 
-    if (geoJsonData) {
-      const geoLayer = L.geoJSON(geoJsonData as GeoJSON.GeoJsonObject, {
-        style: (feature) => {
-          const district = normalizeDistrictName(
-            (feature as GeoJsonFeature).properties?.NOMBRE,
-          );
-          const selected = selectedDistricts.includes(district);
-          const groupKey = districtToGroup[district] ?? "central";
-          return {
-            color: selected ? "#0f172a" : groupBorders[groupKey],
-            fillColor: groupColors[groupKey],
-            fillOpacity: selected ? 0.88 : 0.62,
-            opacity: selected ? 1 : 0.95,
-            weight: selected ? 3.25 : 2.1,
-          };
-        },
-        onEachFeature: (feature, layer) => {
-          const district = normalizeDistrictName(
-            (feature as GeoJsonFeature).properties?.NOMBRE,
-          );
-          if (!district) return;
-
-          const selected = selectedDistricts.includes(district);
-          layer.bindTooltip(district, {
-            permanent: true,
-            direction: "center",
-            className: selected
-              ? "district-map-tooltip district-map-tooltip-selected"
-              : "district-map-tooltip",
-          });
-
-          layer.on("click", () => onToggleDistrict(district));
-
-          if (selected && "bringToFront" in layer) {
-            layer.bringToFront();
-          }
-        },
-      });
-
-      geoLayer.addTo(overlayLayer);
-      return;
-    }
-
-    Object.entries(districtPolygons).forEach(([district, points]) => {
-      const selected = selectedDistricts.includes(district);
-      const groupKey = districtToGroup[district];
-      const polygon = L.polygon(points, {
+    const getStyle = (district: string, selected: boolean) => {
+      const groupKey = districtToGroup[district] ?? "central";
+      return {
         color: selected ? "#0f172a" : groupBorders[groupKey],
         fillColor: groupColors[groupKey],
         fillOpacity: selected ? 0.88 : 0.62,
         opacity: selected ? 1 : 0.95,
         weight: selected ? 3.25 : 2.1,
-      });
+      };
+    };
 
-      polygon.bindTooltip(district, {
+    const bindDistrictLayer = (layer: L.Layer, district: string, selected: boolean) => {
+      if (!("bindTooltip" in layer) || !("on" in layer)) return;
+
+      (layer as L.Path).bindTooltip(district, {
         permanent: true,
         direction: "center",
         className: selected
@@ -369,12 +334,45 @@ export function MadridDistrictMap({
           : "district-map-tooltip",
       });
 
-      polygon.on("click", () => onToggleDistrict(district));
-      polygon.addTo(overlayLayer);
+      (layer as L.Path).on("click", () => onToggleDistrict(district));
+    };
 
-      if (selected) {
-        polygon.bringToFront();
-      }
+    if (geoJsonData) {
+      const buildLayer = (selected: boolean) =>
+        L.geoJSON(geoJsonData as GeoJSON.GeoJsonObject, {
+          filter: (feature) => {
+            const district = normalizeDistrictName(
+              (feature as GeoJsonFeature).properties?.NOMBRE,
+            );
+            return Boolean(district) && selectedDistricts.includes(district) === selected;
+          },
+          style: (feature) => {
+            const district = normalizeDistrictName(
+              (feature as GeoJsonFeature).properties?.NOMBRE,
+            );
+            return getStyle(district, selected);
+          },
+          onEachFeature: (feature, layer) => {
+            const district = normalizeDistrictName(
+              (feature as GeoJsonFeature).properties?.NOMBRE,
+            );
+            if (!district) return;
+
+            bindDistrictLayer(layer, district, selected);
+          },
+        });
+
+      buildLayer(false).addTo(defaultLayer);
+      buildLayer(true).addTo(selectedLayer);
+      return;
+    }
+
+    Object.entries(districtPolygons).forEach(([district, points]) => {
+      const selected = selectedDistricts.includes(district);
+      const polygon = L.polygon(points, getStyle(district, selected));
+
+      bindDistrictLayer(polygon, district, selected);
+      polygon.addTo(selected ? selectedLayer : defaultLayer);
     });
   }, [geoJsonData, onToggleDistrict, selectedDistricts]);
 
