@@ -87,6 +87,37 @@ function getOptionLabel(options: Option[], value: string) {
   return options.find((option) => option.value === value)?.label ?? value;
 }
 
+function getReadableError(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  if (error && typeof error === "object") {
+    const maybeError = error as {
+      message?: unknown;
+      details?: unknown;
+      hint?: unknown;
+      code?: unknown;
+    };
+
+    const parts = [
+      typeof maybeError.message === "string" ? maybeError.message : null,
+      typeof maybeError.details === "string" ? maybeError.details : null,
+      typeof maybeError.hint === "string" ? maybeError.hint : null,
+    ].filter(Boolean) as string[];
+
+    if (parts.length > 0) {
+      return parts.join(" ");
+    }
+
+    if (typeof maybeError.code === "string") {
+      return `Supabase error: ${maybeError.code}`;
+    }
+  }
+
+  return String(error);
+}
+
 export default function App() {
   const [language, setLanguage] = useState<Language>("Español");
   const [form, setForm] = useState<FormState>(() => getDefaultForm("Español"));
@@ -381,15 +412,15 @@ export default function App() {
       setIsComplete(true);
       setNotice(null);
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message.toLowerCase() : String(error);
+      const readableError = getReadableError(error);
+      const message = readableError.toLowerCase();
 
       if (message.includes("duplicate key")) {
         setNotice({ tone: "warning", message: content.duplicate });
       } else {
         setNotice({
           tone: "error",
-          message: error instanceof Error ? error.message : String(error),
+          message: readableError,
         });
       }
     } finally {

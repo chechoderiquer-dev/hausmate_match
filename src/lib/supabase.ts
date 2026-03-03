@@ -47,9 +47,7 @@ export async function persistSubmission(
 
   const { error } = await supabase.client
     .from(supabase.table)
-    .insert(payload)
-    .select("*")
-    .limit(1);
+    .insert(payload);
 
   if (error) {
     throw error;
