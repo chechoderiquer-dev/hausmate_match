@@ -35,6 +35,25 @@ Required variables for live submissions:
 
 If those variables are not set, submissions are stored in `localStorage` so the UI still works during local redesign and review.
 
+## Secret guardrails
+
+Install the repo git hooks once for your clone:
+
+```bash
+npm run setup:githooks
+```
+
+The hooks block commits and pushes if:
+
+- `.env.example` contains real Supabase values instead of blanks or placeholders
+- tracked files contain common secret values such as private keys, service role tokens, or API secrets
+
+You can also run the checks manually:
+
+```bash
+npm run check:secrets
+```
+
 ## Deploy
 
 Build with:
