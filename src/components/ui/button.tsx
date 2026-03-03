@@ -9,9 +9,9 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantClasses: Record<ButtonVariant, string> = {
   primary:
-    "bg-[var(--color-action-primary)] text-[var(--color-text-inverse)] shadow-[var(--shadow-panel)] hover:-translate-y-0.5 hover:bg-[var(--color-action-primary-hover)]",
+    "bg-[var(--color-action-primary)] text-[var(--color-text-inverse)] shadow-[var(--color-button-shadow)] hover:-translate-y-0.5 hover:bg-[var(--color-action-primary-hover)]",
   secondary:
-    "bg-[rgba(217,241,243,0.96)] text-[var(--color-accent-primary)] shadow-[var(--shadow-panel)] hover:-translate-y-0.5 hover:bg-[rgba(201,234,238,0.98)]",
+    "bg-[var(--color-action-secondary)] text-[var(--color-accent-primary)] shadow-[var(--color-button-shadow)] hover:-translate-y-0.5 hover:bg-[var(--color-action-secondary-hover)]",
   ghost:
     "bg-[var(--color-action-ghost)] text-[var(--color-text-secondary)] ring-1 ring-transparent hover:bg-[var(--color-surface-primary)]",
 };
@@ -25,7 +25,7 @@ export function Button({
   return (
     <button
       className={cn(
-        "inline-flex min-h-11 items-center justify-center rounded-[var(--radius-control)] px-5 py-3 text-[length:var(--text-body)] font-semibold tracking-[0.02em] transition disabled:cursor-not-allowed disabled:opacity-60",
+        "inline-flex min-h-11 appearance-none items-center justify-center rounded-[var(--radius-control)] border border-transparent px-5 py-3 text-[length:var(--text-body)] font-semibold tracking-[0.02em] transition disabled:cursor-not-allowed disabled:opacity-100",
         variantClasses[variant],
         className,
       )}

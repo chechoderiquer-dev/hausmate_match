@@ -887,14 +887,17 @@ export default function App() {
                   {step < 2 ? (
                     <Button
                       aria-disabled={!canContinue}
-                      className={!canContinue ? "opacity-60 cursor-not-allowed" : undefined}
+                      className={cn(
+                        "cta-button",
+                        !canContinue && "is-disabled-action",
+                      )}
                       onClick={handleContinueAction}
                       type="button"
                     >
                       {content.nextStep}
                     </Button>
                   ) : (
-                    <Button disabled={!canSubmit} type="submit">
+                    <Button className="cta-button" disabled={!canSubmit} type="submit">
                       {submitting ? content.loading : content.submit}
                     </Button>
                   )}
@@ -936,14 +939,22 @@ export default function App() {
           {step < 2 ? (
             <Button
               aria-disabled={!canContinue}
-              className={!canContinue ? "opacity-60 cursor-not-allowed" : undefined}
+              className={cn(
+                "cta-button sticky-cta-button",
+                !canContinue && "is-disabled-action",
+              )}
               onClick={handleContinueAction}
               type="button"
             >
               {content.stickyCta}
             </Button>
           ) : (
-            <Button disabled={!canSubmit} form="match-form-form" type="submit">
+            <Button
+              className="cta-button sticky-cta-button"
+              disabled={!canSubmit}
+              form="match-form-form"
+              type="submit"
+            >
               {submitting ? content.loading : content.submit}
             </Button>
           )}
