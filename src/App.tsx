@@ -1,4 +1,11 @@
-import { useMemo, useRef, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type FormEvent,
+} from "react";
 import { MadridDistrictMap } from "./components/madrid-district-map";
 import { Button } from "./components/ui/button";
 import { Card } from "./components/ui/card";
@@ -24,7 +31,7 @@ type StepIndex = 0 | 1 | 2;
 interface FormState {
   fullName: string;
   whatsapp: string;
-  age: number;
+  age: string;
   gender: string;
   budget: string;
   rooms: string;
@@ -64,7 +71,7 @@ function getDefaultForm(language: Language): FormState {
   return {
     fullName: "",
     whatsapp: "",
-    age: 25,
+    age: "25",
     gender: set.genderOptions[0],
     budget: "",
     rooms: "",
@@ -85,6 +92,43 @@ function getDefaultForm(language: Language): FormState {
 
 function getOptionLabel(options: Option[], value: string) {
   return options.find((option) => option.value === value)?.label ?? value;
+}
+
+function sanitizeWhatsappInput(rawValue: string) {
+  const allowed = rawValue.replace(/[^\d+\s()-]/g, "");
+  let plusSeen = false;
+
+  return allowed
+    .split("")
+    .filter((character, index) => {
+      if (character !== "+") return true;
+      if (index !== 0 || plusSeen) return false;
+      plusSeen = true;
+      return true;
+    })
+    .join("");
+}
+
+function isValidWhatsapp(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  if (!/^\+?[\d\s()-]+$/.test(trimmed)) return false;
+
+  const digits = trimmed.replace(/\D/g, "");
+  return digits.length >= 7 && digits.length <= 15;
+}
+
+function normalizeAgeInput(rawValue: string) {
+  const digits = rawValue.replace(/\D/g, "");
+  if (!digits) {
+    return "";
+  }
+
+  const withoutLeadingZeros = digits.replace(/^0+(?=\d)/, "");
+  const numeric = Number(withoutLeadingZeros);
+  const clamped = Math.min(99, numeric);
+
+  return String(clamped);
 }
 
 function getReadableError(error: unknown) {
@@ -118,6 +162,20 @@ function getReadableError(error: unknown) {
   return String(error);
 }
 
+function renderRequiredLabel(text: string) {
+  const trimmed = text.trimEnd();
+  if (!trimmed.endsWith("*")) {
+    return text;
+  }
+
+  const labelWithoutAsterisk = trimmed.slice(0, -1).trimEnd();
+  return (
+    <>
+      {labelWithoutAsterisk} <span className="required-asterisk">*</span>
+    </>
+  );
+}
+
 export default function App() {
   const [language, setLanguage] = useState<Language>("Español");
   const [form, setForm] = useState<FormState>(() => getDefaultForm("Español"));
@@ -127,7 +185,10 @@ export default function App() {
   const [districtQuery, setDistrictQuery] = useState("");
   const [isComplete, setIsComplete] = useState(false);
   const [continueAttempted, setContinueAttempted] = useState(false);
+  const [stickyDockProgress, setStickyDockProgress] = useState(0);
   const formRef = useRef<HTMLElement | null>(null);
+  const stickyCtaRef = useRef<HTMLDivElement | null>(null);
+  const transientNoticeTimerRef = useRef<number | null>(null);
 
   const content = useMemo(() => copy[language], [language]);
   const stepProgress = ((step + 1) / content.stepNames.length) * 100;
@@ -146,7 +207,7 @@ export default function App() {
 
   const stepCompletion = useMemo(
     () => [
-      Boolean(form.fullName.trim() && form.whatsapp.trim()),
+      Boolean(form.fullName.trim() && isValidWhatsapp(form.whatsapp)),
       Boolean(
         form.budget &&
           Number(form.budget) > 0 &&
@@ -204,7 +265,28 @@ export default function App() {
     formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
+  const clearTransientNoticeTimer = () => {
+    if (transientNoticeTimerRef.current !== null) {
+      window.clearTimeout(transientNoticeTimerRef.current);
+      transientNoticeTimerRef.current = null;
+    }
+  };
+
+  const showTransientContinueNotice = (message: string) => {
+    clearTransientNoticeTimer();
+    setNotice({ tone: "error", message });
+    const wordCount = message.trim().split(/\s+/).filter(Boolean).length;
+    const durationMs = Math.max(1000, wordCount * 1000);
+    transientNoticeTimerRef.current = window.setTimeout(() => {
+      setNotice((current) =>
+        current?.tone === "error" && current.message === message ? null : current,
+      );
+      transientNoticeTimerRef.current = null;
+    }, durationMs);
+  };
+
   const resetFlow = (nextLanguage: Language = language) => {
+    clearTransientNoticeTimer();
     setForm(getDefaultForm(nextLanguage));
     setStep(0);
     setNotice(null);
@@ -236,6 +318,7 @@ export default function App() {
       consentShare: current.consentShare,
       consentWhatsapp: current.consentWhatsapp,
     }));
+    clearTransientNoticeTimer();
     setNotice(null);
     setContinueAttempted(false);
   };
@@ -258,7 +341,11 @@ export default function App() {
     if (currentStep === 0) {
       const missing = [
         !form.fullName.trim() ? content.name.replace(" *", "") : null,
-        !form.whatsapp.trim() ? content.wa.replace(" *", "") : null,
+        !form.whatsapp.trim()
+          ? content.wa.replace(" *", "")
+          : !isValidWhatsapp(form.whatsapp)
+            ? content.waInvalid
+            : null,
       ].filter(Boolean) as string[];
 
       return formatMissingMessage(missing);
@@ -281,26 +368,11 @@ export default function App() {
     return formatMissingMessage(missing);
   };
 
-  const inlineStepHint = useMemo(() => {
-    if (step === 0 && continueAttempted && !stepCompletion[0]) {
-      return getContinueErrorMessage(0);
-    }
-
-    if (step === 1 && continueAttempted && !stepCompletion[1]) {
-      return getContinueErrorMessage(1);
-    }
-
-    return null;
-  }, [
-    continueAttempted,
-    step,
-    stepCompletion,
-  ]);
-
   const navigateToStep = (targetStep: StepIndex) => {
     if (targetStep === step) return;
     if (targetStep < step || canAccessStep(targetStep)) {
       setStep(targetStep);
+      clearTransientNoticeTimer();
       setNotice(null);
       setContinueAttempted(false);
       scrollToForm();
@@ -311,15 +383,16 @@ export default function App() {
     setContinueAttempted(true);
 
     if (step === 0 && !stepCompletion[0]) {
-      setNotice({ tone: "error", message: getContinueErrorMessage(0) });
+      showTransientContinueNotice(getContinueErrorMessage(0));
       return;
     }
 
     if (step === 1 && !stepCompletion[1]) {
-      setNotice({ tone: "error", message: getContinueErrorMessage(1) });
+      showTransientContinueNotice(getContinueErrorMessage(1));
       return;
     }
 
+    clearTransientNoticeTimer();
     setNotice(null);
     setContinueAttempted(false);
     setStep((current) => (current < 2 ? ((current + 1) as StepIndex) : current));
@@ -327,6 +400,7 @@ export default function App() {
   };
 
   const goToPreviousStep = () => {
+    clearTransientNoticeTimer();
     setNotice(null);
     setContinueAttempted(false);
     setStep((current) => (current > 0 ? ((current - 1) as StepIndex) : current));
@@ -336,7 +410,7 @@ export default function App() {
   const handleContinueAction = () => {
     if (!canContinue) {
       setContinueAttempted(true);
-      setNotice({ tone: "error", message: getContinueErrorMessage(step) });
+      showTransientContinueNotice(getContinueErrorMessage(step));
       return;
     }
 
@@ -349,18 +423,24 @@ export default function App() {
     if (!stepCompletion[0] || !stepCompletion[1] || !stepCompletion[2]) {
       const missing = [
         !form.fullName.trim() ? content.name.replace(" *", "") : null,
-        !form.whatsapp.trim() ? content.wa.replace(" *", "") : null,
+        !form.whatsapp.trim()
+          ? content.wa.replace(" *", "")
+          : !isValidWhatsapp(form.whatsapp)
+            ? content.waInvalid
+            : null,
         !form.budget || Number(form.budget) <= 0 ? content.budget : null,
         !form.consentPrivacy ? content.legalOpt1.replace(" *", "") : null,
         !form.consentShare ? content.legalOpt2.replace(" *", "") : null,
         !form.consentWhatsapp ? content.legalOpt3.replace(" *", "") : null,
       ].filter(Boolean) as string[];
 
+      clearTransientNoticeTimer();
       setNotice({ tone: "error", message: formatMissingMessage(missing) });
       return;
     }
 
     setSubmitting(true);
+    clearTransientNoticeTimer();
     setNotice(null);
 
     const now = new Date();
@@ -387,7 +467,7 @@ export default function App() {
       budget: Number(form.budget),
       habitaciones: form.rooms,
       pref_genero: form.livingPreference,
-      edad: Number(form.age),
+      edad: form.age ? Number(form.age) : null,
       genero: form.gender,
       zona:
         form.districts.length > 0
@@ -410,14 +490,17 @@ export default function App() {
     try {
       await persistSubmission(payload);
       setIsComplete(true);
+      clearTransientNoticeTimer();
       setNotice(null);
     } catch (error) {
       const readableError = getReadableError(error);
       const message = readableError.toLowerCase();
 
       if (message.includes("duplicate key")) {
+        clearTransientNoticeTimer();
         setNotice({ tone: "warning", message: content.duplicate });
       } else {
+        clearTransientNoticeTimer();
         setNotice({
           tone: "error",
           message: readableError,
@@ -427,6 +510,52 @@ export default function App() {
       setSubmitting(false);
     }
   };
+
+  useEffect(() => {
+    return () => {
+      clearTransientNoticeTimer();
+    };
+  }, []);
+
+  useEffect(() => {
+    let frame = 0;
+    const preDockDistance = 140;
+
+    const updateStickyState = () => {
+      frame = 0;
+      const stickyElement = stickyCtaRef.current;
+      if (!stickyElement) return;
+
+      const remainingScroll =
+        document.documentElement.scrollHeight - (window.scrollY + window.innerHeight);
+      const clampedRemaining = Math.max(0, remainingScroll);
+      const progress = Math.max(
+        0,
+        Math.min(1, 1 - clampedRemaining / preDockDistance),
+      );
+
+      setStickyDockProgress((current) =>
+        Math.abs(current - progress) < 0.01 ? current : progress,
+      );
+    };
+
+    const scheduleUpdate = () => {
+      if (frame !== 0) return;
+      frame = window.requestAnimationFrame(updateStickyState);
+    };
+
+    scheduleUpdate();
+    window.addEventListener("scroll", scheduleUpdate, { passive: true });
+    window.addEventListener("resize", scheduleUpdate);
+
+    return () => {
+      if (frame !== 0) {
+        window.cancelAnimationFrame(frame);
+      }
+      window.removeEventListener("scroll", scheduleUpdate);
+      window.removeEventListener("resize", scheduleUpdate);
+    };
+  }, []);
 
   if (isComplete) {
     return (
@@ -452,7 +581,6 @@ export default function App() {
 
         <header className="hero-grid">
           <div className="hero-copy-block">
-            <p className="badge">{content.badge}</p>
             <p className="eyebrow">{content.eyebrow}</p>
             <h1 className="hero-title">{content.headline}</h1>
             <p className="hero-copy">{content.intro}</p>
@@ -472,12 +600,12 @@ export default function App() {
               {(["Español", "English"] as const).map((option) => (
                 <Button
                   className={cn(
-                    "min-h-10 px-4 text-[length:var(--text-caption)] uppercase tracking-[0.18em]",
-                    language === option && "hover:bg-[var(--color-action-primary)]",
+                    "language-option min-h-10 px-4 text-[length:var(--text-caption)] uppercase tracking-[0.18em]",
+                    language === option && "is-active",
                   )}
                   key={option}
                   onClick={() => switchLanguage(option)}
-                  variant={language === option ? "primary" : "ghost"}
+                  variant="ghost"
                 >
                   {option}
                 </Button>
@@ -505,30 +633,28 @@ export default function App() {
                     />
                   </div>
                 </div>
-                <p className="section-copy">{content.sideText}</p>
+                <div className="step-tabs" aria-label="Form steps">
+                  {content.stepNames.map((name, index) => {
+                    const targetStep = index as StepIndex;
+                    return (
+                      <button
+                        className={cn(
+                          "step-tab",
+                          index === step && "is-active",
+                          index < step && "is-complete",
+                          !canAccessStep(targetStep) && targetStep > step && "is-locked",
+                        )}
+                        key={name}
+                        onClick={() => navigateToStep(targetStep)}
+                        type="button"
+                      >
+                        <span className="step-number">{index + 1}</span>
+                        <span>{name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
                 <p className="trust-note">{content.trustMessage}</p>
-              </div>
-
-              <div className="step-tabs" aria-label="Form steps">
-                {content.stepNames.map((name, index) => {
-                  const targetStep = index as StepIndex;
-                  return (
-                    <button
-                      className={cn(
-                        "step-tab",
-                        index === step && "is-active",
-                        index < step && "is-complete",
-                        !canAccessStep(targetStep) && targetStep > step && "is-locked",
-                      )}
-                      key={name}
-                      onClick={() => navigateToStep(targetStep)}
-                      type="button"
-                    >
-                      <span className="step-number">{index + 1}</span>
-                      <span>{name}</span>
-                    </button>
-                  );
-                })}
               </div>
 
               <form className="form-stack" id="match-form-form" onSubmit={handleSubmit}>
@@ -536,7 +662,9 @@ export default function App() {
                   <>
                     <div className="form-grid">
                       <div className="form-field">
-                        <Label htmlFor="fullName">{content.name}</Label>
+                        <Label htmlFor="fullName">
+                          {renderRequiredLabel(content.name)}
+                        </Label>
                         <Input
                           id="fullName"
                           onChange={(event) =>
@@ -545,28 +673,43 @@ export default function App() {
                           placeholder={content.namePlaceholder}
                           value={form.fullName}
                         />
+                        {continueAttempted && !form.fullName.trim() ? (
+                          <p className="field-hint">{content.name.replace(" *", "")}</p>
+                        ) : null}
                       </div>
                       <div className="form-field">
-                        <Label htmlFor="whatsapp">{content.wa}</Label>
+                        <Label htmlFor="whatsapp">
+                          {renderRequiredLabel(content.wa)}
+                        </Label>
                         <Input
                           id="whatsapp"
+                          autoComplete="tel"
+                          inputMode="tel"
                           onChange={(event) =>
-                            updateField("whatsapp", event.target.value)
+                            updateField(
+                              "whatsapp",
+                              sanitizeWhatsappInput(event.target.value),
+                            )
                           }
                           placeholder={content.waPlaceholder}
                           value={form.whatsapp}
                         />
+                        {continueAttempted && !form.whatsapp.trim() ? (
+                          <p className="field-hint">{content.wa.replace(" *", "")}</p>
+                        ) : continueAttempted && !isValidWhatsapp(form.whatsapp) ? (
+                          <p className="field-hint">{content.waInvalid}</p>
+                        ) : null}
                       </div>
                       <div className="form-field">
                         <Label htmlFor="age">{content.age}</Label>
                         <Input
                           id="age"
-                          max={99}
-                          min={18}
+                          autoComplete="off"
+                          inputMode="numeric"
                           onChange={(event) =>
-                            updateField("age", Number(event.target.value))
+                            updateField("age", normalizeAgeInput(event.target.value))
                           }
-                          type="number"
+                          type="text"
                           value={form.age}
                         />
                       </div>
@@ -623,10 +766,7 @@ export default function App() {
                     <div className="form-grid">
                       <div className="form-field">
                         <Label htmlFor="budget">
-                          {content.budget}
-                          {continueAttempted && (!form.budget || Number(form.budget) <= 0) ? (
-                            <span className="required-asterisk">*</span>
-                          ) : null}
+                          {renderRequiredLabel(content.budget)}
                         </Label>
                         <Input
                           id="budget"
@@ -697,7 +837,6 @@ export default function App() {
                     <div className="district-section">
                       <div>
                         <h3 className="section-title">{content.lifestyle}</h3>
-                        <p className="section-copy subcopy-spacing">{content.sideText}</p>
                       </div>
                       <div className="district-grid">
                         {content.lifestyleOptions.map((tag) => {
@@ -823,7 +962,7 @@ export default function App() {
                             updateField("consentPrivacy", event.target.checked)
                           }
                         />
-                        <span>{content.legalOpt1}</span>
+                        <span>{renderRequiredLabel(content.legalOpt1)}</span>
                       </label>
 
                       <label className="checkbox-row">
@@ -833,7 +972,7 @@ export default function App() {
                             updateField("consentShare", event.target.checked)
                           }
                         />
-                        <span>{content.legalOpt2}</span>
+                        <span>{renderRequiredLabel(content.legalOpt2)}</span>
                       </label>
 
                       <label className="checkbox-row">
@@ -843,7 +982,7 @@ export default function App() {
                             updateField("consentWhatsapp", event.target.checked)
                           }
                         />
-                        <span>{content.legalOpt3}</span>
+                        <span>{renderRequiredLabel(content.legalOpt3)}</span>
                       </label>
 
                       <details className="policy-details">
@@ -879,8 +1018,6 @@ export default function App() {
                       >
                         {notice.message}
                       </div>
-                    ) : inlineStepHint ? (
-                      <div className="action-hint">{inlineStepHint}</div>
                     ) : null}
                   </div>
 
@@ -907,57 +1044,57 @@ export default function App() {
           </Card>
         </section>
 
-        <Card className="trust-strip">
-          <div className="trust-strip-header">
-            <p className="kicker">{content.statsTitle}</p>
-            <h2 className="trust-strip-title">{content.sideTitle}</h2>
-            <p className="trust-strip-copy">{content.sideText}</p>
+        <div
+          className="sticky-cta"
+          ref={stickyCtaRef}
+          style={
+            {
+              "--sticky-dock-progress": String(stickyDockProgress),
+            } as CSSProperties
+          }
+        >
+          <div className="sticky-cta-inner">
+            <div className="sticky-copy">
+              <span className="sticky-step">
+                {content.stepOf} {step + 1} / {content.stepNames.length}
+              </span>
+              <span className="sticky-title">{content.stepNames[step]}</span>
+            </div>
+            {step < 2 ? (
+              <Button
+                aria-disabled={!canContinue}
+                className={cn(
+                  "cta-button sticky-cta-button",
+                  !canContinue && "is-disabled-action",
+                )}
+                onClick={handleContinueAction}
+                type="button"
+              >
+                {content.stickyCta}
+              </Button>
+            ) : (
+              <Button
+                className="cta-button sticky-cta-button"
+                disabled={!canSubmit}
+                form="match-form-form"
+                type="submit"
+              >
+                {submitting ? content.loading : content.submit}
+              </Button>
+            )}
           </div>
-          <div className="trust-strip-grid">
-            {content.sidePoints.map((point) => (
-              <div className="trust-strip-item" key={point}>
-                {point}
-              </div>
-            ))}
-            {content.stats.map((item) => (
-              <div className="trust-strip-item trust-strip-stat" key={item}>
-                {item}
-              </div>
-            ))}
-          </div>
-        </Card>
-      </div>
-
-      <div className="sticky-cta">
-        <div className="sticky-cta-inner">
-          <div className="sticky-copy">
-            <span className="sticky-step">
-              {content.stepOf} {step + 1} / {content.stepNames.length}
-            </span>
-            <span className="sticky-title">{content.stepNames[step]}</span>
-          </div>
-          {step < 2 ? (
-            <Button
-              aria-disabled={!canContinue}
+          {notice ? (
+            <div
               className={cn(
-                "cta-button sticky-cta-button",
-                !canContinue && "is-disabled-action",
+                "notice mobile-action-feedback",
+                notice.tone === "success" && "notice-success",
+                notice.tone === "warning" && "notice-warning",
+                notice.tone === "error" && "notice-error",
               )}
-              onClick={handleContinueAction}
-              type="button"
             >
-              {content.stickyCta}
-            </Button>
-          ) : (
-            <Button
-              className="cta-button sticky-cta-button"
-              disabled={!canSubmit}
-              form="match-form-form"
-              type="submit"
-            >
-              {submitting ? content.loading : content.submit}
-            </Button>
-          )}
+              {notice.message}
+            </div>
+          ) : null}
         </div>
       </div>
     </main>

@@ -34,6 +34,23 @@
   --color-button-border: rgba(15, 23, 42, 0.08);
   --color-button-shadow: 0 16px 40px rgba(15, 23, 42, 0.16);
   --color-button-shadow-disabled: 0 10px 26px rgba(15, 23, 42, 0.12);
+  --color-cta-bg: #86c1c9;
+  --color-cta-bg-hover: #79b2ba;
+  --color-cta-text: #ffffff;
+  --color-cta-border: rgba(90, 145, 153, 0.9);
+  --color-cta-shadow: 0 12px 28px rgba(43, 89, 96, 0.28);
+  --color-bg-shell:
+    radial-gradient(circle at 18% 10%, rgba(127, 187, 194, 0.58), transparent 30%),
+    radial-gradient(circle at 82% 0%, rgba(95, 186, 192, 0.18), transparent 22%),
+    linear-gradient(180deg, #d6ebee 0%, #eef6f7 42%, #ffffff 100%);
+  --color-bg-glow:
+    radial-gradient(circle at 20% 20%, rgba(12, 45, 51, 0.12), transparent 35%),
+    radial-gradient(circle at 80% 0%, rgba(95, 186, 192, 0.24), transparent 30%);
+  --color-sticky-fade: linear-gradient(
+    180deg,
+    rgba(239, 251, 252, 0),
+    rgba(239, 251, 252, 0.96) 35%
+  );
   --color-chip-selected: #0f172a;
   --color-chip-default: #ffffff;
   --color-success-surface: #ecfdf5;
@@ -108,6 +125,23 @@
     --color-button-border: rgba(179, 230, 234, 0.22);
     --color-button-shadow: 0 18px 42px rgba(0, 0, 0, 0.42);
     --color-button-shadow-disabled: 0 12px 28px rgba(0, 0, 0, 0.28);
+    --color-cta-bg: #86c1c9;
+    --color-cta-bg-hover: #92ccd4;
+    --color-cta-text: #ffffff;
+    --color-cta-border: rgba(118, 180, 188, 0.92);
+    --color-cta-shadow: 0 14px 32px rgba(24, 57, 62, 0.48);
+    --color-bg-shell:
+      radial-gradient(circle at 18% 10%, rgba(102, 197, 204, 0.2), transparent 30%),
+      radial-gradient(circle at 82% 0%, rgba(102, 197, 204, 0.12), transparent 22%),
+      linear-gradient(180deg, #071117 0%, #0d1720 48%, #0c151d 100%);
+    --color-bg-glow:
+      radial-gradient(circle at 20% 20%, rgba(102, 197, 204, 0.14), transparent 35%),
+      radial-gradient(circle at 80% 0%, rgba(102, 197, 204, 0.2), transparent 30%);
+    --color-sticky-fade: linear-gradient(
+      180deg,
+      rgba(7, 17, 23, 0),
+      rgba(7, 17, 23, 0.96) 35%
+    );
     --color-chip-selected: #b3e6ea;
     --color-chip-default: #111c25;
     --color-success-surface: rgba(22, 101, 52, 0.2);
@@ -143,7 +177,7 @@
 html {
   scroll-behavior: smooth;
   -webkit-text-size-adjust: 100%;
-  background-color: #effbfc;
+  background-color: var(--color-page-background);
 }
 
 html,

@@ -84,6 +84,7 @@ interface CopySet {
   namePlaceholder: string;
   wa: string;
   waPlaceholder: string;
+  waInvalid: string;
   age: string;
   gender: string;
   livingPreference: string;
@@ -154,14 +155,15 @@ export const copy: Record<Language, CopySet> = {
     nextStep: "Continuar",
     previousStep: "Volver",
     name: "Nombre completo *",
-    namePlaceholder: "Ej: John Doe",
+    namePlaceholder: "John Doe",
     wa: "WhatsApp (+34) *",
     waPlaceholder: "+34 600 000 000",
+    waInvalid: "WhatsApp debe tener un formato válido (ej. +34 600 000 000)",
     age: "Tu edad",
     gender: "Tu género",
     livingPreference: "Preferencia de convivencia",
     budget: "Presupuesto mensual (€) *",
-    budgetPlaceholder: "Ej: 850",
+    budgetPlaceholder: "850",
     rooms: "¿Cuántas habitaciones buscas?",
     country: "País de origen",
     countryDefault: "ES",
@@ -372,14 +374,15 @@ Fecha de última actualización: 2026`,
     nextStep: "Continue",
     previousStep: "Back",
     name: "Full Name *",
-    namePlaceholder: "Ex: John Doe",
+    namePlaceholder: "John Doe",
     wa: "WhatsApp (with +) *",
     waPlaceholder: "+34 600 000 000",
+    waInvalid: "WhatsApp must be a valid phone format (e.g. +34 600 000 000)",
     age: "Your age",
     gender: "Your gender",
     livingPreference: "Living preference",
     budget: "Monthly budget (€) *",
-    budgetPlaceholder: "Ex: 850",
+    budgetPlaceholder: "850",
     rooms: "How many rooms are you looking for?",
     country: "Country of origin",
     countryDefault: "ES",
