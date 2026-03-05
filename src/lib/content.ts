@@ -155,7 +155,7 @@ export const copy: Record<Language, CopySet> = {
     nextStep: "Continuar",
     previousStep: "Volver",
     name: "Nombre completo *",
-    namePlaceholder: "John Doe",
+    namePlaceholder: "Juan Pérez",
     wa: "WhatsApp (+34) *",
     waPlaceholder: "+34 600 000 000",
     waInvalid: "WhatsApp debe tener un formato válido (ej. +34 600 000 000)",
