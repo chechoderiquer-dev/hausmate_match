@@ -129,16 +129,17 @@
 }
 
 .language-option {
-  border: 1px solid var(--color-border-secondary);
+  border: 1px solid var(--color-border-strong);
   border-radius: calc(var(--radius-control) - 0.2rem);
-  background: var(--color-surface-strong);
-  color: var(--color-text-secondary);
+  background: color-mix(in oklab, var(--color-surface-strong), transparent 6%);
+  color: var(--color-text-primary);
+  -webkit-text-fill-color: currentColor;
   box-shadow: none;
 }
 
 .language-option:hover {
   border-color: var(--color-border-strong);
-  background: var(--color-surface-strong);
+  background: color-mix(in oklab, var(--color-surface-strong), transparent 3%);
 }
 
 .language-option.is-active {
@@ -604,6 +605,18 @@
 .action-notice {
   flex: 1 1 auto;
   margin: 0;
+}
+
+.back-step-button {
+  border: 1px solid var(--color-border-strong);
+  background: color-mix(in oklab, var(--color-surface-strong), transparent 6%);
+  color: var(--color-text-primary);
+  box-shadow: none;
+}
+
+.back-step-button:hover {
+  border-color: var(--color-accent-primary);
+  background: var(--color-accent-soft);
 }
 
 .cta-button {

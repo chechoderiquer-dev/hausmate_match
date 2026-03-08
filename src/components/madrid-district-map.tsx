@@ -139,12 +139,6 @@ const districtPolygons: Record<string, LatLng[]> = {
     [40.556, -3.485],
     [40.556, -3.611],
   ],
-  Otros: [
-    [40.318, -3.818],
-    [40.318, -3.742],
-    [40.37, -3.742],
-    [40.37, -3.818],
-  ],
 };
 
 const DISTRICT_GEOJSON_URL =

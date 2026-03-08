@@ -35,12 +35,15 @@ interface FormState {
   gender: string;
   budget: string;
   rooms: string;
+  lookingFor: string;
+  homeRoutinePreference: string;
   livingPreference: string;
   country: string;
   primaryLanguage: string;
   urgency: string;
   lifestyleTags: string[];
   districts: string[];
+  otherArea: string;
   moveIn: string;
   moveOut: string;
   notes: string;
@@ -75,12 +78,15 @@ function getDefaultForm(language: Language): FormState {
     gender: set.genderOptions[0],
     budget: "",
     rooms: "",
+    lookingFor: "",
+    homeRoutinePreference: set.homeRoutineOptions[0],
     livingPreference: set.livingOptions[0],
     country: set.countryDefault,
     primaryLanguage: set.languageOptions[0].value,
     urgency: set.urgencyOptions[1].value,
     lifestyleTags: [],
     districts: [],
+    otherArea: "",
     moveIn: today.toISOString().slice(0, 10),
     moveOut: moveOut.toISOString().slice(0, 10),
     notes: "",
@@ -304,6 +310,8 @@ export default function App() {
       age: current.age,
       budget: current.budget,
       rooms: current.rooms,
+      lookingFor: current.lookingFor,
+      homeRoutinePreference: current.homeRoutinePreference,
       gender: current.gender,
       livingPreference: current.livingPreference,
       country: current.country,
@@ -311,6 +319,7 @@ export default function App() {
       urgency: current.urgency,
       lifestyleTags: current.lifestyleTags,
       districts: current.districts,
+      otherArea: current.otherArea,
       moveIn: current.moveIn,
       moveOut: current.moveOut,
       notes: current.notes,
@@ -449,12 +458,25 @@ export default function App() {
       `${cleanWhatsapp}_${now.toISOString().slice(0, 10)}`,
     );
     const consentTimestamp = now.toISOString();
+    const otherArea = form.otherArea.trim();
+    const allAreas = [
+      ...form.districts,
+      ...(otherArea ? [otherArea] : []),
+    ];
     const profileSummary = [
       form.notes.trim(),
       form.lifestyleTags.length > 0
-        ? `Lifestyle: ${form.lifestyleTags.join(", ")}`
+        ? `${content.lifestyle}: ${form.lifestyleTags.join(", ")}`
         : "",
-      `Urgencia: ${getOptionLabel(content.urgencyOptions, form.urgency)}`,
+      `${content.urgency}: ${getOptionLabel(content.urgencyOptions, form.urgency)}`,
+      form.lookingFor
+        ? `${content.lookingFor}: ${getOptionLabel(content.lookingForOptions, form.lookingFor)}`
+        : "",
+      form.rooms ? `${content.rooms}: ${form.rooms}` : "",
+      form.homeRoutinePreference
+        ? `${content.homeRoutine}: ${form.homeRoutinePreference}`
+        : "",
+      otherArea ? `${content.otherArea}: ${otherArea}` : "",
     ]
       .filter(Boolean)
       .join("\n");
@@ -469,10 +491,7 @@ export default function App() {
       pref_genero: form.livingPreference,
       edad: form.age ? Number(form.age) : null,
       genero: form.gender,
-      zona:
-        form.districts.length > 0
-          ? form.districts.join(", ")
-          : content.districtFallback,
+      zona: allAreas.length > 0 ? allAreas.join(", ") : content.districtFallback,
       inicio: form.moveIn,
       fin: form.moveOut,
       idioma: getOptionLabel(content.languageOptions, form.primaryLanguage),
@@ -500,10 +519,13 @@ export default function App() {
         clearTransientNoticeTimer();
         setNotice({ tone: "warning", message: content.duplicate });
       } else {
+        if (import.meta.env.DEV) {
+          console.error("Submission failed:", error);
+        }
         clearTransientNoticeTimer();
         setNotice({
           tone: "error",
-          message: readableError,
+          message: content.internalError,
         });
       }
     } finally {
@@ -600,7 +622,7 @@ export default function App() {
               {(["Español", "English"] as const).map((option) => (
                 <Button
                   className={cn(
-                    "language-option min-h-10 px-4 text-[length:var(--text-caption)] uppercase tracking-[0.18em]",
+                    "language-option min-h-10 px-4 text-[length:var(--text-body)] font-semibold whitespace-nowrap",
                     language === option && "is-active",
                   )}
                   key={option}
@@ -801,6 +823,23 @@ export default function App() {
                         </Select>
                       </div>
                       <div className="form-field">
+                        <Label htmlFor="lookingFor">{content.lookingFor}</Label>
+                        <Select
+                          id="lookingFor"
+                          onChange={(event) =>
+                            updateField("lookingFor", event.target.value)
+                          }
+                          value={form.lookingFor}
+                        >
+                          <option value="">-</option>
+                          {content.lookingForOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </Select>
+                      </div>
+                      <div className="form-field">
                         <Label htmlFor="livingPreference">
                           {content.livingPreference}
                         </Label>
@@ -812,6 +851,24 @@ export default function App() {
                           value={form.livingPreference}
                         >
                           {content.livingOptions.map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </Select>
+                      </div>
+                      <div className="form-field">
+                        <Label htmlFor="homeRoutinePreference">
+                          {content.homeRoutine}
+                        </Label>
+                        <Select
+                          id="homeRoutinePreference"
+                          onChange={(event) =>
+                            updateField("homeRoutinePreference", event.target.value)
+                          }
+                          value={form.homeRoutinePreference}
+                        >
+                          {content.homeRoutineOptions.map((option) => (
                             <option key={option} value={option}>
                               {option}
                             </option>
@@ -871,6 +928,17 @@ export default function App() {
                               onChange={(event) => setDistrictQuery(event.target.value)}
                               placeholder={content.zoneSearchPlaceholder}
                               value={districtQuery}
+                            />
+                          </div>
+                          <div className="form-field">
+                            <Label htmlFor="otherArea">{content.otherArea}</Label>
+                            <Input
+                              id="otherArea"
+                              onChange={(event) =>
+                                updateField("otherArea", event.target.value)
+                              }
+                              placeholder={content.otherAreaPlaceholder}
+                              value={form.otherArea}
                             />
                           </div>
 
@@ -997,9 +1065,10 @@ export default function App() {
                   <div className="form-actions-left">
                     {step > 0 ? (
                       <Button
+                        className="back-step-button"
                         onClick={goToPreviousStep}
                         type="button"
-                        variant="secondary"
+                        variant="ghost"
                       >
                         {content.previousStep}
                       </Button>

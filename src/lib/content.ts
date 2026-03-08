@@ -22,7 +22,6 @@ export const districts = [
   "Vicálvaro",
   "San Blas-Canillejas",
   "Barajas",
-  "Otros",
 ] as const;
 
 export const districtGroups = [
@@ -61,7 +60,7 @@ export const districtGroups = [
   },
   {
     key: "west",
-    districts: ["Moncloa-Aravaca", "Latina", "Otros"],
+    districts: ["Moncloa-Aravaca", "Latina"],
   },
 ] as const;
 
@@ -91,6 +90,10 @@ interface CopySet {
   budget: string;
   budgetPlaceholder: string;
   rooms: string;
+  lookingFor: string;
+  lookingForOptions: Option[];
+  homeRoutine: string;
+  homeRoutineOptions: string[];
   country: string;
   countryDefault: string;
   countryOptions: Option[];
@@ -104,6 +107,8 @@ interface CopySet {
   areasHelp: string;
   zoneSearch: string;
   zoneSearchPlaceholder: string;
+  otherArea: string;
+  otherAreaPlaceholder: string;
   zoneGroupLabels: Record<string, string>;
   noZoneResults: string;
   moveIn: string;
@@ -115,6 +120,7 @@ interface CopySet {
   requiredError: string;
   success: string;
   duplicate: string;
+  internalError: string;
   localSave: string;
   legalHeader: string;
   legalOpt1: string;
@@ -164,7 +170,14 @@ export const copy: Record<Language, CopySet> = {
     livingPreference: "Preferencia de convivencia",
     budget: "Presupuesto mensual (€) *",
     budgetPlaceholder: "850",
-    rooms: "¿Cuántas habitaciones buscas?",
+    rooms: "Con cuantas personas estarías dispuesto a rentar?",
+    lookingFor: "¿Qué busco?",
+    lookingForOptions: [
+      { value: "roommate_only", label: "Solo roomie porque ya tengo piso" },
+      { value: "place_and_roommates", label: "Un piso y roomies" },
+      { value: "place_only", label: "Un piso" },
+    ],
+    homeRoutine: "¿Teletrabajas/estudias desde casa?",
     country: "País de origen",
     countryDefault: "ES",
     countryOptions: [
@@ -207,6 +220,8 @@ export const copy: Record<Language, CopySet> = {
     areasHelp: "Busca y selecciona los distritos que mejor encajen contigo.",
     zoneSearch: "Buscar distrito",
     zoneSearchPlaceholder: "Buscar distrito",
+    otherArea: "Otro lugar",
+    otherAreaPlaceholder: "Escribe otra zona o ciudad",
     zoneGroupLabels: {
       central: "Centro",
       north: "Norte",
@@ -225,6 +240,8 @@ export const copy: Record<Language, CopySet> = {
       "Requerido: nombre, WhatsApp y aceptación de las casillas legales.",
     success: "Datos guardados con éxito.",
     duplicate: "Ya recibimos tu solicitud hoy.",
+    internalError:
+      "Ocurrió un error interno. Por favor, inténtalo de nuevo en unos minutos.",
     localSave:
       "Hemos guardado tu perfil para revisión. Si no recibes respuesta pronto, vuelve a intentarlo.",
     legalHeader: "Privacidad y consentimiento",
@@ -358,6 +375,7 @@ Este consentimiento constituye una base legal válida conforme al RGPD.
 Fecha de última actualización: 2026`,
     genderOptions: ["Mujer", "Hombre", "Otro"],
     livingOptions: ["Mixto", "Solo Mujeres", "Solo Hombres"],
+    homeRoutineOptions: ["Nunca", "Algunos días", "Casi todos los días"],
     roomOptions: ["1", "2", "3", "4", "5+"],
   },
   English: {
@@ -383,7 +401,14 @@ Fecha de última actualización: 2026`,
     livingPreference: "Living preference",
     budget: "Monthly budget (€) *",
     budgetPlaceholder: "850",
-    rooms: "How many rooms are you looking for?",
+    rooms: "How many people would you be willing to rent with?",
+    lookingFor: "What are you looking for?",
+    lookingForOptions: [
+      { value: "roommate_only", label: "Roommate only (I already have a place)" },
+      { value: "place_and_roommates", label: "A place and roommates" },
+      { value: "place_only", label: "A place only" },
+    ],
+    homeRoutine: "Do you work/study from home?",
     country: "Country of origin",
     countryDefault: "ES",
     countryOptions: [
@@ -426,6 +451,8 @@ Fecha de última actualización: 2026`,
     areasHelp: "Search and select the districts that best fit you.",
     zoneSearch: "Search district",
     zoneSearchPlaceholder: "Search district",
+    otherArea: "Other place",
+    otherAreaPlaceholder: "Write another area or city",
     zoneGroupLabels: {
       central: "Central",
       north: "North",
@@ -443,6 +470,8 @@ Fecha de última actualización: 2026`,
     requiredError: "Required: name, WhatsApp, and all legal checkboxes.",
     success: "Data saved successfully.",
     duplicate: "We already received your request today.",
+    internalError:
+      "An internal error occurred. Please try again in a few minutes.",
     localSave:
       "We saved your profile for review. If you do not hear from us soon, please try again.",
     legalHeader: "Privacy and consent",
@@ -577,6 +606,7 @@ This consent constitutes a valid legal basis under GDPR.
 Last updated: 2026`,
     genderOptions: ["Woman", "Man", "Other"],
     livingOptions: ["Mixed", "Women only", "Men only"],
+    homeRoutineOptions: ["Never", "Some days", "Most days"],
     roomOptions: ["1", "2", "3", "4", "5+"],
   },
 };
