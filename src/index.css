@@ -1,0 +1,247 @@
+@import "@fontsource/space-grotesk/index.css";
+@import "tailwindcss";
+
+:root {
+  font-family: "Space Grotesk", sans-serif;
+  color-scheme: light dark;
+  --color-page-background: #effbfc;
+  --color-page-background-soft: #f9fafb;
+  --color-surface-primary: rgba(255, 255, 255, 0.82);
+  --color-surface-secondary: rgba(248, 250, 252, 0.84);
+  --color-surface-strong: #ffffff;
+  --color-border-primary: rgba(255, 255, 255, 0.7);
+  --color-border-secondary: #d9e2ec;
+  --color-border-strong: #94a3b8;
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #475569;
+  --color-text-muted: rgba(15, 23, 42, 0.62);
+  --color-text-inverse: #ffffff;
+  --color-accent-primary: #0c2d33;
+  --color-accent-secondary: #5fbac0;
+  --color-accent-soft: #d9f1f3;
+  --map-central: #d8f0f2;
+  --map-north: #dfeef9;
+  --map-east: #f7ead2;
+  --map-south: #f8dede;
+  --map-west: #e8e0f7;
+  --color-action-primary: #0f172a;
+  --color-action-primary-hover: #1e293b;
+  --color-action-primary-disabled: rgba(15, 23, 42, 0.18);
+  --color-action-primary-disabled-text: rgba(255, 255, 255, 0.95);
+  --color-action-secondary: rgba(217, 241, 243, 0.96);
+  --color-action-secondary-hover: rgba(201, 234, 238, 0.98);
+  --color-action-ghost: transparent;
+  --color-button-border: rgba(15, 23, 42, 0.08);
+  --color-button-shadow: 0 16px 40px rgba(15, 23, 42, 0.16);
+  --color-button-shadow-disabled: 0 10px 26px rgba(15, 23, 42, 0.12);
+  --color-cta-bg: #86c1c9;
+  --color-cta-bg-hover: #79b2ba;
+  --color-cta-text: #ffffff;
+  --color-cta-border: rgba(90, 145, 153, 0.9);
+  --color-cta-shadow: 0 12px 28px rgba(43, 89, 96, 0.28);
+  --color-bg-shell:
+    radial-gradient(circle at 18% 10%, rgba(127, 187, 194, 0.58), transparent 30%),
+    radial-gradient(circle at 82% 0%, rgba(95, 186, 192, 0.18), transparent 22%),
+    linear-gradient(180deg, #d6ebee 0%, #eef6f7 42%, #ffffff 100%);
+  --color-bg-glow:
+    radial-gradient(circle at 20% 20%, rgba(12, 45, 51, 0.12), transparent 35%),
+    radial-gradient(circle at 80% 0%, rgba(95, 186, 192, 0.24), transparent 30%);
+  --color-sticky-fade: linear-gradient(
+    180deg,
+    rgba(239, 251, 252, 0),
+    rgba(239, 251, 252, 0.96) 35%
+  );
+  --color-chip-selected: #0f172a;
+  --color-chip-default: #ffffff;
+  --color-success-surface: #ecfdf5;
+  --color-success-text: #166534;
+  --color-success-border: #86efac;
+  --color-warning-surface: #fffbeb;
+  --color-warning-text: #92400e;
+  --color-warning-border: #fcd34d;
+  --color-danger-surface: #fff1f2;
+  --color-danger-text: #be123c;
+  --color-danger-border: #fda4af;
+  --shadow-card: 0 24px 80px rgba(12, 45, 51, 0.12);
+  --shadow-panel: 0 16px 40px rgba(15, 23, 42, 0.16);
+  --shadow-soft: 0 12px 28px rgba(15, 23, 42, 0.08);
+  --radius-card: 1.75rem;
+  --radius-control: 1rem;
+  --radius-pill: 999px;
+  --space-section: clamp(1.5rem, 1.15rem + 1.5vw, 3rem);
+  --space-card-padding: clamp(1.25rem, 0.95rem + 1.2vw, 2.5rem);
+  --text-hero: clamp(2.2rem, 1.6rem + 2.2vw, 4.9rem);
+  --text-title: clamp(1.55rem, 1.2rem + 1vw, 2.35rem);
+  --text-subtitle: clamp(1.1rem, 1rem + 0.55vw, 1.4rem);
+  --text-body-lg: clamp(1rem, 0.95rem + 0.28vw, 1.125rem);
+  --text-body: clamp(0.95rem, 0.92rem + 0.16vw, 1rem);
+  --text-caption: clamp(0.75rem, 0.72rem + 0.14vw, 0.84rem);
+  --leading-body: 1.65;
+  --leading-tight: 1.1;
+  color: var(--color-text-primary);
+  background:
+    radial-gradient(circle at top, rgba(127, 187, 194, 0.72), transparent 38%),
+    linear-gradient(
+      180deg,
+      var(--color-page-background) 0%,
+      var(--color-page-background-soft) 48%,
+      #ffffff 100%
+    );
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-page-background: #071117;
+    --color-page-background-soft: #0d1720;
+    --color-surface-primary: rgba(9, 18, 26, 0.82);
+    --color-surface-secondary: rgba(12, 21, 31, 0.88);
+    --color-surface-strong: #0d1720;
+    --color-border-primary: rgba(148, 163, 184, 0.18);
+    --color-border-secondary: rgba(148, 163, 184, 0.24);
+    --color-border-strong: rgba(148, 163, 184, 0.5);
+    --color-text-primary: #e5eef5;
+    --color-text-secondary: #b8c7d4;
+    --color-text-muted: rgba(226, 232, 240, 0.62);
+    --color-text-inverse: #081017;
+    --color-accent-primary: #b3e6ea;
+    --color-accent-secondary: #66c5cc;
+    --color-accent-soft: rgba(102, 197, 204, 0.22);
+    --map-central: rgba(102, 197, 204, 0.22);
+    --map-north: rgba(145, 186, 235, 0.2);
+    --map-east: rgba(230, 183, 94, 0.22);
+    --map-south: rgba(218, 116, 116, 0.22);
+    --map-west: rgba(165, 133, 222, 0.22);
+    --color-action-primary: #b3e6ea;
+    --color-action-primary-hover: #c7eff2;
+    --color-action-primary-disabled: rgba(179, 230, 234, 0.22);
+    --color-action-primary-disabled-text: rgba(229, 238, 245, 0.88);
+    --color-action-secondary: rgba(102, 197, 204, 0.18);
+    --color-action-secondary-hover: rgba(102, 197, 204, 0.24);
+    --color-action-ghost: rgba(255, 255, 255, 0.02);
+    --color-button-border: rgba(179, 230, 234, 0.22);
+    --color-button-shadow: 0 18px 42px rgba(0, 0, 0, 0.42);
+    --color-button-shadow-disabled: 0 12px 28px rgba(0, 0, 0, 0.28);
+    --color-cta-bg: #86c1c9;
+    --color-cta-bg-hover: #92ccd4;
+    --color-cta-text: #ffffff;
+    --color-cta-border: rgba(118, 180, 188, 0.92);
+    --color-cta-shadow: 0 14px 32px rgba(24, 57, 62, 0.48);
+    --color-bg-shell:
+      radial-gradient(circle at 18% 10%, rgba(102, 197, 204, 0.2), transparent 30%),
+      radial-gradient(circle at 82% 0%, rgba(102, 197, 204, 0.12), transparent 22%),
+      linear-gradient(180deg, #071117 0%, #0d1720 48%, #0c151d 100%);
+    --color-bg-glow:
+      radial-gradient(circle at 20% 20%, rgba(102, 197, 204, 0.14), transparent 35%),
+      radial-gradient(circle at 80% 0%, rgba(102, 197, 204, 0.2), transparent 30%);
+    --color-sticky-fade: linear-gradient(
+      180deg,
+      rgba(7, 17, 23, 0),
+      rgba(7, 17, 23, 0.96) 35%
+    );
+    --color-chip-selected: #b3e6ea;
+    --color-chip-default: #111c25;
+    --color-success-surface: rgba(22, 101, 52, 0.2);
+    --color-success-text: #bbf7d0;
+    --color-success-border: rgba(134, 239, 172, 0.45);
+    --color-warning-surface: rgba(146, 64, 14, 0.2);
+    --color-warning-text: #fde68a;
+    --color-warning-border: rgba(252, 211, 77, 0.4);
+    --color-danger-surface: rgba(190, 24, 93, 0.18);
+    --color-danger-text: #fbcfe8;
+    --color-danger-border: rgba(251, 113, 133, 0.38);
+    --shadow-card: 0 28px 84px rgba(0, 0, 0, 0.46);
+    --shadow-panel: 0 18px 42px rgba(0, 0, 0, 0.4);
+    --shadow-soft: 0 12px 28px rgba(0, 0, 0, 0.24);
+    background:
+      radial-gradient(circle at top, rgba(102, 197, 204, 0.22), transparent 38%),
+      linear-gradient(
+        180deg,
+        var(--color-page-background) 0%,
+        var(--color-page-background-soft) 55%,
+        #0c151d 100%
+      );
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+  background-color: var(--color-page-background);
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  min-width: 320px;
+  line-height: var(--leading-body);
+  color: var(--color-text-primary);
+  background-color: var(--color-page-background);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+picture,
+svg,
+canvas,
+video {
+  display: block;
+  max-width: 100%;
+}
+
+input,
+button,
+textarea,
+select {
+  background: none;
+  border: 0;
+}
+
+button {
+  cursor: pointer;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+ul,
+ol {
+  padding: 0;
+  list-style: none;
+}
+
+table {
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+
+#root {
+  min-height: 100vh;
+  background-color: var(--color-page-background);
+}
