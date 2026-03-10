@@ -459,27 +459,15 @@ export default function App() {
     );
     const consentTimestamp = now.toISOString();
     const otherArea = form.otherArea.trim();
-    const allAreas = [
-      ...form.districts,
-      ...(otherArea ? [otherArea] : []),
-    ];
-    const profileSummary = [
-      form.notes.trim(),
-      form.lifestyleTags.length > 0
-        ? `${content.lifestyle}: ${form.lifestyleTags.join(", ")}`
-        : "",
-      `${content.urgency}: ${getOptionLabel(content.urgencyOptions, form.urgency)}`,
-      form.lookingFor
-        ? `${content.lookingFor}: ${getOptionLabel(content.lookingForOptions, form.lookingFor)}`
-        : "",
-      form.rooms ? `${content.rooms}: ${form.rooms}` : "",
-      form.homeRoutinePreference
-        ? `${content.homeRoutine}: ${form.homeRoutinePreference}`
-        : "",
-      otherArea ? `${content.otherArea}: ${otherArea}` : "",
-    ]
-      .filter(Boolean)
-      .join("\n");
+    const selectedDistricts =
+      form.districts.length > 0 ? form.districts.join(", ") : null;
+    const lifestyleSelection =
+      form.lifestyleTags.length > 0 ? form.lifestyleTags.join(", ") : null;
+    const urgencySelection = getOptionLabel(content.urgencyOptions, form.urgency);
+    const lookingForSelection = form.lookingFor
+      ? getOptionLabel(content.lookingForOptions, form.lookingFor)
+      : null;
+    const countrySelection = getOptionLabel(content.countryOptions, form.country);
 
     const payload = {
       nombre: form.fullName.trim(),
@@ -491,12 +479,22 @@ export default function App() {
       pref_genero: form.livingPreference,
       edad: form.age ? Number(form.age) : null,
       genero: form.gender,
-      zona: allAreas.length > 0 ? allAreas.join(", ") : content.districtFallback,
+      zona: selectedDistricts ?? content.districtFallback,
+      zonas_preferidas: selectedDistricts,
       inicio: form.moveIn,
       fin: form.moveOut,
       idioma: getOptionLabel(content.languageOptions, form.primaryLanguage),
-      Perfil: profileSummary,
-      notas: `LOG LEGAL ${POLICY_VERSION} | ${consentTimestamp} | Pais: ${getOptionLabel(content.countryOptions, form.country)} | Consentimiento: OK`,
+      pais_origen: countrySelection,
+      pais_origen_codigo: form.country,
+      Perfil: form.notes.trim(),
+      estilo_vida: lifestyleSelection,
+      urgencia_mudanza: urgencySelection,
+      urgencia_mudanza_codigo: form.urgency,
+      busqueda_vivienda: lookingForSelection,
+      busqueda_vivienda_codigo: form.lookingFor || null,
+      preferencia_rutina_hogar: form.homeRoutinePreference || null,
+      zona_otra: otherArea || null,
+      notas: `LOG LEGAL ${POLICY_VERSION} | ${consentTimestamp} | Consentimiento: OK`,
       created_at: consentTimestamp,
       policy_version: POLICY_VERSION,
       consent_timestamp: consentTimestamp,
